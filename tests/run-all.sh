@@ -14,6 +14,8 @@ SUITES=(
     "test-false-positives.sh:False Positive Validation"
     "test-confirmed-threats.sh:Confirmed Threats"
     "test-layer3.sh:Layer 3 — MCP Proxy"
+    "test-layer2.sh:Layer 2 — LLM Analysis"
+    "test-project-install.sh:Project-Level Installation"
 )
 
 SUITE_PASSED=0

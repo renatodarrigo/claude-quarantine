@@ -239,7 +239,7 @@
     <h1>claude-quarantine</h1>
     <p class="tagline">Prompt injection security guard for Claude Code. 3-layer defense in depth against adversarial content.</p>
     <div class="badges">
-      <span class="badge-green">49 tests passing</span>
+      <span class="badge-green">66 tests passing</span>
       <span class="badge-green">3 defense layers</span>
       <span class="badge-blue">MIT license</span>
     </div>
@@ -274,13 +274,32 @@
       <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">Or clone and install manually:</p>
       <pre>git clone https://github.com/renatodarrigo/claude-quarantine.git
 cd claude-quarantine
-./install.sh</pre>
+./install.sh              # User-level (global)
+./install.sh --project    # Project-level (committable)</pre>
       <p style="color:var(--muted); font-size:0.85rem; margin-top:12px;">
-        Copies hooks and MCP server to <code>~/.claude/</code> and configures <code>settings.json</code>.
+        Copies hooks and MCP server and configures <code>settings.json</code>.
         Requires git, Node.js, and npm.
       </p>
     </div>
   </div>
+
+  <!-- Installation Options -->
+  <section>
+    <h2>Installation Options</h2>
+    <div class="grid-2">
+      <div class="card">
+        <h3>User-Level (Global)</h3>
+        <p><code>./install.sh</code> &mdash; installs to <code>~/.claude/</code>. Protects all Claude Code sessions on your machine.
+           This is the default and recommended for personal use.</p>
+      </div>
+      <div class="card">
+        <h3>Project-Level (Team)</h3>
+        <p><code>./install.sh --project</code> &mdash; installs to <code>.claude/</code> in the current directory.
+           All paths are relative, so the config works for anyone who clones the repo. Commit to git to share with your team.
+           A <code>.gitignore</code> is created to exclude logs and local settings.</p>
+      </div>
+    </div>
+  </section>
 
   <!-- How It Works -->
   <section>
@@ -331,10 +350,10 @@ cd claude-quarantine
       </div>
       <div class="card">
         <h3>Layer 2 &mdash; LLM Analysis</h3>
-        <p>Semantic analysis using a fast Claude model. Catches sophisticated attacks that evade patterns:
-           context priming, social engineering, obfuscated directives. Enable for high-risk sessions
-           (untrusted PRs, unknown URLs).</p>
-        <span class="tag tag-planned">Planned &mdash; enable via ENABLE_LAYER2=true</span>
+        <p>Deep semantic analysis using <code>claude -p</code> (Claude CLI print mode). Catches sophisticated attacks that
+           evade patterns: context priming, social engineering, obfuscated directives. Runs after Layer 1;
+           skips if already HIGH. Gracefully degrades if CLI is unavailable.</p>
+        <span class="tag tag-warning">~2-5s latency &mdash; enable via ENABLE_LAYER2=true</span>
       </div>
       <div class="card full">
         <h3>Layer 3 &mdash; MCP Sanitization Proxy</h3>
@@ -500,7 +519,7 @@ cd claude-quarantine
   <!-- Configuration -->
   <section>
     <h2>Configuration</h2>
-    <p class="intro">Edit <code>~/.claude/hooks/injection-guard.conf</code> to control behavior.</p>
+    <p class="intro">Edit <code>~/.claude/hooks/injection-guard.conf</code> (or <code>.claude/hooks/injection-guard.conf</code> for project installs) to control behavior.</p>
     <div class="card">
       <h3>Main Config</h3>
 <pre class="config"><span class="comment"># Layer toggles</span>
@@ -510,6 +529,9 @@ cd claude-quarantine
 
 <span class="comment"># Threat response: "block" (exit 2) or "warn" (systemMessage only)</span>
 <span class="key">HIGH_THREAT_ACTION</span>=<span class="val">block</span>
+
+<span class="comment"># Layer 2 settings</span>
+<span class="key">LAYER2_MAX_CHARS</span>=<span class="val">10000</span>      <span class="comment"># Max content length sent to LLM analysis</span>
 
 <span class="comment"># Logging</span>
 <span class="key">LOG_FILE</span>=<span class="val">~/.claude/hooks/injection-guard.log</span>
@@ -530,10 +552,10 @@ cd claude-quarantine
       <h3>Key Files</h3>
       <table>
         <tr><th>File</th><th>Purpose</th></tr>
-        <tr><td><code>~/.claude/hooks/injection-guard.sh</code></td><td>Layer 1 hook script</td></tr>
+        <tr><td><code>~/.claude/hooks/injection-guard.sh</code></td><td>Layer 1+2 hook script</td></tr>
         <tr><td><code>~/.claude/hooks/injection-patterns.conf</code></td><td>Shared regex patterns (Layer 1 + 3)</td></tr>
-        <tr><td><code>~/.claude/hooks/injection-guard.conf</code></td><td>Config: toggles, threat response, logging</td></tr>
-        <tr><td><code>~/.claude/hooks/injection-guard.log</code></td><td>Detection log (JSONL)</td></tr>
+        <tr><td><code>~/.claude/hooks/injection-guard.conf</code></td><td>Config: toggles, Layer 2 settings, logging</td></tr>
+        <tr><td><code>~/.claude/hooks/injection-guard.log</code></td><td>Detection log (JSONL, includes Layer 2 metadata)</td></tr>
         <tr><td><code>~/.claude/hooks/confirmed-threats.json</code></td><td>User-confirmed threats for auto-blocking</td></tr>
         <tr><td><code>~/.claude/mcp/claude-quarantine/</code></td><td>Layer 3 MCP proxy server</td></tr>
         <tr><td><code>~/.claude/commands/review-threats.md</code></td><td>/review-threats skill</td></tr>

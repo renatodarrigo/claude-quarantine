@@ -2,12 +2,16 @@ You are reviewing the claude-quarantine threat detection log. Your job is to pre
 
 ## File locations
 
-- **Log file (JSONL)**: `~/.claude/hooks/injection-guard.log`
-- **Confirmed threats store**: `~/.claude/hooks/confirmed-threats.json`
+Check project-level first, then fall back to user-level:
+
+- **Log file (JSONL)**: `.claude/hooks/injection-guard.log` (project) or `~/.claude/hooks/injection-guard.log` (user)
+- **Confirmed threats store**: `.claude/hooks/confirmed-threats.json` (project) or `~/.claude/hooks/confirmed-threats.json` (user)
+
+To determine which to use: check if `.claude/hooks/injection-guard.log` exists. If so, use the `.claude/hooks/` paths. Otherwise, use `~/.claude/hooks/` paths.
 
 ## Procedure
 
-1. **Read** the log file `~/.claude/hooks/injection-guard.log`. Each line is a JSON object with fields: `id`, `timestamp`, `tool`, `severity`, `categories`, `indicators`, `snippet`, `status`. Filter for entries where `status` is `"unreviewed"`.
+1. **Read** the log file (project-level first, then user-level). Each line is a JSON object with fields: `id`, `timestamp`, `tool`, `severity`, `categories`, `indicators`, `snippet`, `status`. Optionally includes `layer2` object with `executed`, `severity`, `reasoning`, `confidence` fields. Filter for entries where `status` is `"unreviewed"`.
 
 2. **Count** unreviewed entries. If there are none, tell the user "No unreviewed threats in the log." and stop.
 
@@ -18,12 +22,13 @@ You are reviewing the claude-quarantine threat detection log. Your job is to pre
   Categories: {categories joined}
   Indicators: {indicators joined}
   Snippet: {snippet, truncated to ~200 chars}
+  Layer 2: {if layer2.executed: "severity={layer2.severity} confidence={layer2.confidence} — {layer2.reasoning}"}
 ```
 
 4. **Ask the user** to review the batch using AskUserQuestion. For each entry in the current batch, ask whether it is a **real threat** or a **false positive**. Use multiSelect so the user can select which entries are real threats (unselected = false positive).
 
 5. **Process responses**:
-   - **Confirmed threats**: Read the current `~/.claude/hooks/confirmed-threats.json` (create as `[]` if missing). Append a new entry for each confirmed threat:
+   - **Confirmed threats**: Read the current confirmed threats file (create as `[]` if missing). Append a new entry for each confirmed threat:
      ```json
      {
        "id": "<original log entry id>",
@@ -36,7 +41,7 @@ You are reviewing the claude-quarantine threat detection log. Your job is to pre
      ```
      Write the updated array back to the file.
    - **False positives**: Simply mark as dismissed (no storage needed).
-   - **Update the log**: Rewrite `~/.claude/hooks/injection-guard.log` with the status of each processed entry changed to `"confirmed"` or `"dismissed"`. This removes them from future reviews.
+   - **Update the log**: Rewrite the log file with the status of each processed entry changed to `"confirmed"` or `"dismissed"`. This removes them from future reviews.
 
 6. **Repeat** for the next batch of 5 until all unreviewed entries are processed.
 
@@ -52,4 +57,4 @@ You are reviewing the claude-quarantine threat detection log. Your job is to pre
 - Keep snippet display short (~200 chars max) to minimize context usage.
 - When rewriting the log file, preserve ALL entries (confirmed, dismissed, and any remaining unreviewed). Only change the `status` field.
 - The confirmed-threats.json file is an array at the top level. Read-modify-write it atomically.
-- If the log file doesn't exist, tell the user no detections have been recorded yet.
+- If the log file doesn't exist in either location, tell the user no detections have been recorded yet.
