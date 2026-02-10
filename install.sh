@@ -33,7 +33,6 @@ while [[ $# -gt 0 ]]; do
             echo "EXAMPLES:"
             echo "  ./install.sh                       # User-level: ~/.claude/"
             echo "  ./install.sh --project=~/myapp     # Project-level: ~/myapp/.claude/"
-            echo "  ./install.sh --project=.           # Project-level: ./.claude/"
             exit 0
             ;;
         *)
