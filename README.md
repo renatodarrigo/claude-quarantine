@@ -65,8 +65,8 @@ curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/mai
 git clone https://github.com/renatodarrigo/claude-quarantine.git
 cd claude-quarantine
 ./install.sh                   # User-level: ~/.claude/ (global, all sessions)
-./install.sh --project         # Project-level: .claude/ in current directory
 ./install.sh --project=~/myapp # Project-level: ~/myapp/.claude/
+./install.sh --project=.       # Project-level: ./.claude/ (current directory)
 ```
 
 The installer copies hooks and the MCP server and configures `settings.json`. Requires git, Node.js, and npm. If you already have a `settings.json`, you'll need to merge the config manually (the installer will warn you).
@@ -76,7 +76,7 @@ The installer copies hooks and the MCP server and configures `settings.json`. Re
 | Mode | Command | Location | Scope |
 |------|---------|----------|-------|
 | **User-level** | `./install.sh` | `~/.claude/` | All Claude Code sessions |
-| **Project-level** | `./install.sh --project[=DIR]` | `.claude/` | Current project (or specified dir) |
+| **Project-level** | `./install.sh --project=DIR` | `DIR/.claude/` | Current project (or specified dir) |
 
 **When to use which:**
 - **User-level** (default): You want protection in every Claude Code session
