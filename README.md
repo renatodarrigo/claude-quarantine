@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/layers-3-green" alt="3 layers">
-  <img src="https://img.shields.io/badge/tests-68%20passing-brightgreen" alt="66 tests passing">
+  <img src="https://img.shields.io/badge/tests-70%20passing-brightgreen" alt="70 tests passing">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
   <br><br>
   <a href="https://ko-fi.com/renatodarrigo"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
@@ -277,11 +277,11 @@ my_other_rule:MED:please run this command
 ## Testing
 
 ```bash
-./tests/run-all.sh           # Run all 68 tests
+./tests/run-all.sh           # Run all 70 tests
 ./tests/run-all.sh --verbose # With full output
 ```
 
-7 test suites:
+8 test suites:
 - **Layer 1** — Pattern scanner against 10 malicious + 5 benign fixtures
 - **Config** — Block/warn toggle, layer enable/disable, log thresholds
 - **False Positives** — Security blogs, code comments, docs, git logs pass clean
@@ -289,6 +289,7 @@ my_other_rule:MED:please run this command
 - **Layer 3** — MCP scanner + sanitizer (REDACTED/SEC-WARNING markers)
 - **Layer 2** — LLM analysis: skip logic, graceful degradation, severity escalation, logging
 - **Project Install** — `--project` flag, relative paths, `.gitignore`, hook execution
+- **Update Mechanism** — VERSION file, version marker, skill installation, config preservation
 
 ## Limitations
 
