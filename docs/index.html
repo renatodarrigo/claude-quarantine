@@ -516,6 +516,32 @@ cd claude-quarantine
     </div>
   </section>
 
+  <!-- Keeping Up to Date -->
+  <section>
+    <h2>Keeping Up to Date</h2>
+    <p class="intro">Run the <code>/update-quarantine</code> slash command in Claude Code to check for updates and install them seamlessly.</p>
+
+    <div class="card">
+      <h3>Usage</h3>
+      <p>The updater checks your installed version against GitHub, shows what's new, and re-runs the installer &mdash; preserving your config, logs, and confirmed threats.</p>
+      <div class="example" style="margin-top:12px;">
+<pre style="margin:0; color:var(--fg); font-size:0.8rem; line-height:1.6;">&gt; /update-quarantine
+
+Installed: v1.1.0
+Latest:    v1.2.0
+
+<span style="color:var(--muted);">Update claude-quarantine to v1.2.0?</span>
+&gt; Update now
+
+Running installer...
+Installation complete! (v1.2.0)
+
+<span style="color:#4ade80;">Updated:</span> hooks, patterns, MCP server, skills
+<span style="color:#4ade80;">Preserved:</span> injection-guard.conf, injection-guard.log, confirmed-threats.json</pre>
+      </div>
+    </div>
+  </section>
+
   <!-- Configuration -->
   <section>
     <h2>Configuration</h2>
@@ -559,6 +585,8 @@ cd claude-quarantine
         <tr><td><code>~/.claude/hooks/confirmed-threats.json</code></td><td>User-confirmed threats for auto-blocking</td></tr>
         <tr><td><code>~/.claude/mcp/claude-quarantine/</code></td><td>Layer 3 MCP proxy server</td></tr>
         <tr><td><code>~/.claude/commands/review-threats.md</code></td><td>/review-threats skill</td></tr>
+        <tr><td><code>~/.claude/commands/update-quarantine.md</code></td><td>/update-quarantine skill</td></tr>
+        <tr><td><code>~/.claude/.quarantine-version</code></td><td>Installed version marker (for update checks)</td></tr>
       </table>
     </div>
   </section>

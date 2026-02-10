@@ -127,10 +127,11 @@ cd ~/.claude/mcp/claude-quarantine && npm install && npx tsc
 }
 ```
 
-**4. Copy the review skill:**
+**4. Copy skills:**
 ```bash
 mkdir -p ~/.claude/commands
 cp review-threats.md ~/.claude/commands/
+cp update-quarantine.md ~/.claude/commands/
 ```
 
 ## Layers
@@ -208,6 +209,35 @@ Which entries are real threats? (unselected = false positive)
 - **False positives** are dismissed from the log
 
 This creates a feedback loop: the more you review, the smarter the scanner gets.
+
+## Updating
+
+Run `/update-quarantine` in Claude Code to check for and install updates:
+
+```
+> /update-quarantine
+
+Installed: v1.1.0
+Latest:    v1.2.0
+
+Update claude-quarantine to v1.2.0?
+> Update now
+
+Running installer...
+Installation complete! (v1.2.0)
+Updated hooks, patterns, MCP server, and skills.
+Preserved: injection-guard.conf, injection-guard.log, confirmed-threats.json
+```
+
+The updater re-runs the installer, which preserves your config, logs, and confirmed threats. Only patterns, hooks, the MCP server, and skills are updated.
+
+**Manual update alternative:**
+
+```bash
+git clone https://github.com/renatodarrigo/claude-quarantine.git
+cd claude-quarantine
+./install.sh                   # or ./install.sh --project=~/myapp
+```
 
 ## Configuration
 

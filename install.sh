@@ -93,6 +93,7 @@ COMMANDS_DIR="$CLAUDE_DIR/commands"
 echo "Installing /review-threats skill to $COMMANDS_DIR..."
 mkdir -p "$COMMANDS_DIR"
 cp "$REPO_DIR/review-threats.md" "$COMMANDS_DIR/"
+cp "$REPO_DIR/update-quarantine.md" "$COMMANDS_DIR/"
 
 # --- Install hooks ---
 echo "Installing hooks to $HOOKS_DIR..."
@@ -215,8 +216,17 @@ SETTINGS
     echo "  Created settings.json with hook and MCP server config"
 fi
 
+# --- Write version marker ---
+if [[ -f "$REPO_DIR/VERSION" ]]; then
+    cp "$REPO_DIR/VERSION" "$CLAUDE_DIR/.quarantine-version"
+fi
+
 echo ""
-echo "Installation complete!"
+VERSION_STR=""
+if [[ -f "$CLAUDE_DIR/.quarantine-version" ]]; then
+    VERSION_STR=$(cat "$CLAUDE_DIR/.quarantine-version" | tr -d '[:space:]')
+fi
+echo "Installation complete! ${VERSION_STR:+(v$VERSION_STR)}"
 echo ""
 echo "Layer 1 (Pattern Scanner): Active on all WebFetch, Bash, and MCP tool results"
 echo "Layer 3 (MCP Proxy):       Available as secure_fetch, secure_gh, secure_curl tools"

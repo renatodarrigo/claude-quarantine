@@ -1,6 +1,6 @@
 {
   "name": "claude-quarantine",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "description": "Prompt injection security guard for Claude Code — MCP proxy server",
   "type": "module",
   "main": "dist/index.js",
