@@ -66,7 +66,6 @@ git clone https://github.com/renatodarrigo/claude-quarantine.git
 cd claude-quarantine
 ./install.sh                   # User-level: ~/.claude/ (global, all sessions)
 ./install.sh --project=~/myapp # Project-level: ~/myapp/.claude/
-./install.sh --project=.       # Project-level: ./.claude/ (current directory)
 ```
 
 The installer copies hooks and the MCP server and configures `settings.json`. Requires git, Node.js, and npm. If you already have a `settings.json`, you'll need to merge the config manually (the installer will warn you).

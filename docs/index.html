@@ -275,8 +275,7 @@
       <pre>git clone https://github.com/renatodarrigo/claude-quarantine.git
 cd claude-quarantine
 ./install.sh                   # User-level (global)
-./install.sh --project=~/myapp # Project-level (~/myapp/.claude/)
-./install.sh --project=.       # Project-level (./.claude/)</pre>
+./install.sh --project=~/myapp # Project-level (~/myapp/.claude/)</pre>
       <p style="color:var(--muted); font-size:0.85rem; margin-top:12px;">
         Copies hooks and MCP server and configures <code>settings.json</code>.
         Requires git, Node.js, and npm.
@@ -296,7 +295,6 @@ cd claude-quarantine
       <div class="card">
         <h3>Project-Level (Team)</h3>
         <p><code>./install.sh --project=DIR</code> &mdash; installs to <code>DIR/.claude/</code>.
-           Use <code>--project=.</code> for the current directory.
            All paths are relative, so the config works for anyone who clones the repo. Commit to git to share with your team.
            A <code>.gitignore</code> is created to exclude logs and local settings.</p>
       </div>
