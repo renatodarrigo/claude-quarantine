@@ -4,8 +4,7 @@
 #
 # Usage:
 #   ./install.sh                       # Install to ~/.claude/ (user-level, global)
-#   ./install.sh --project             # Install to .claude/ in current directory
-#   ./install.sh --project=~/myapp     # Install to ~/myapp/.claude/
+#   ./install.sh --project=~/myapp     # Install to ~/myapp/.claude/ (project-level)
 #
 # One-liner install:
 #   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/install.sh | bash
@@ -17,24 +16,24 @@ CLEANUP_TEMP=false
 
 while [[ $# -gt 0 ]]; do
     case "$1" in
-        --project)
-            INSTALL_MODE="project"; shift ;;
         --project=*)
             INSTALL_MODE="project"
             PROJECT_DIR="${1#--project=}"; shift ;;
+        --project)
+            echo "Error: --project requires a path, e.g. --project=~/myapp" >&2
+            exit 1
+            ;;
         --help|-h)
             echo "USAGE: ./install.sh [OPTIONS]"
             echo ""
             echo "OPTIONS:"
-            echo "  --project[=DIR]  Install to .claude/ (project-level, committable)"
-            echo "                   If DIR is given, installs to DIR/.claude/"
-            echo "                   If omitted, installs to ./.claude/"
+            echo "  --project=DIR    Install to DIR/.claude/ (project-level, committable)"
             echo "  --help           Show this help message"
             echo ""
             echo "EXAMPLES:"
             echo "  ./install.sh                       # User-level: ~/.claude/"
-            echo "  ./install.sh --project             # Project-level: ./.claude/"
             echo "  ./install.sh --project=~/myapp     # Project-level: ~/myapp/.claude/"
+            echo "  ./install.sh --project=.           # Project-level: ./.claude/"
             exit 0
             ;;
         *)
@@ -46,18 +45,14 @@ while [[ $# -gt 0 ]]; do
 done
 
 if [[ "$INSTALL_MODE" == "project" ]]; then
-    if [[ -n "$PROJECT_DIR" ]]; then
-        # Expand ~ manually (not expanded inside quotes)
-        PROJECT_DIR="${PROJECT_DIR/#\~/$HOME}"
-        if [[ ! -d "$PROJECT_DIR" ]]; then
-            echo "Error: directory '$PROJECT_DIR' does not exist" >&2
-            exit 1
-        fi
-        PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
-        CLAUDE_DIR="$PROJECT_DIR/.claude"
-    else
-        CLAUDE_DIR=".claude"
+    # Expand ~ manually (not expanded inside quotes)
+    PROJECT_DIR="${PROJECT_DIR/#\~/$HOME}"
+    if [[ ! -d "$PROJECT_DIR" ]]; then
+        echo "Error: directory '$PROJECT_DIR' does not exist" >&2
+        exit 1
     fi
+    PROJECT_DIR="$(cd "$PROJECT_DIR" && pwd)"
+    CLAUDE_DIR="$PROJECT_DIR/.claude"
 else
     CLAUDE_DIR="$HOME/.claude"
 fi
@@ -88,11 +83,7 @@ MCP_DIR="$CLAUDE_DIR/mcp/claude-quarantine"
 echo "claude-quarantine installer"
 echo "==========================="
 if [[ "$INSTALL_MODE" == "project" ]]; then
-    if [[ -n "$PROJECT_DIR" ]]; then
-        echo "Mode: project-level ($PROJECT_DIR/.claude/)"
-    else
-        echo "Mode: project-level (.claude/ in current directory)"
-    fi
+    echo "Mode: project-level ($PROJECT_DIR/.claude/)"
 else
     echo "Mode: user-level (~/.claude/)"
 fi

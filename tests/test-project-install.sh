@@ -34,12 +34,20 @@ else
     fail "Unknown flag errors" "exit=$exit_code output=$unknown_output"
 fi
 
-# Test 3: --project creates .claude/ structure
+# Test 3: Bare --project (no path) errors
+bare_output=$(bash "$INSTALLER" --project 2>&1)
+bare_exit=$?
+if [[ "$bare_exit" != "0" ]] && echo "$bare_output" | grep -q "requires a path"; then
+    pass "Bare --project errors with helpful message"
+else
+    fail "Bare --project errors" "exit=$bare_exit output=$bare_output"
+fi
+
+# Test 4: --project=DIR creates .claude/ structure
 echo ""
 echo "--- Project install ---"
 TEMP_PROJECT="$(mktemp -d)"
-cd "$TEMP_PROJECT"
-bash "$INSTALLER" --project > /dev/null 2>&1
+bash "$INSTALLER" --project="$TEMP_PROJECT" > /dev/null 2>&1
 structure_ok=true
 for dir in ".claude/hooks" ".claude/mcp" ".claude/commands"; do
     if [[ ! -d "$TEMP_PROJECT/$dir" ]]; then
@@ -48,12 +56,12 @@ for dir in ".claude/hooks" ".claude/mcp" ".claude/commands"; do
     fi
 done
 if $structure_ok; then
-    pass "--project creates .claude/ directory structure"
+    pass "--project=DIR creates .claude/ directory structure"
 else
-    fail "--project creates .claude/ directory structure" "Missing directories in $TEMP_PROJECT"
+    fail "--project=DIR creates .claude/ directory structure" "Missing directories in $TEMP_PROJECT"
 fi
 
-# Test 4: settings.json uses relative paths
+# Test 5: settings.json uses relative paths
 if [[ -f "$TEMP_PROJECT/.claude/settings.json" ]]; then
     if grep -q '".claude/hooks/injection-guard.sh"' "$TEMP_PROJECT/.claude/settings.json" && \
        ! grep -q '"~/.claude/' "$TEMP_PROJECT/.claude/settings.json"; then
@@ -65,7 +73,7 @@ else
     fail "settings.json uses relative paths" "settings.json not created"
 fi
 
-# Test 5: Config LOG_FILE is project-relative
+# Test 6: Config LOG_FILE is project-relative
 if [[ -f "$TEMP_PROJECT/.claude/hooks/injection-guard.conf" ]]; then
     if grep -q 'LOG_FILE=.claude/hooks/' "$TEMP_PROJECT/.claude/hooks/injection-guard.conf"; then
         pass "Config LOG_FILE uses project-relative path"
@@ -76,7 +84,7 @@ else
     fail "Config LOG_FILE uses project-relative path" "injection-guard.conf not created"
 fi
 
-# Test 6: .gitignore created with correct entries
+# Test 7: .gitignore created with correct entries
 if [[ -f "$TEMP_PROJECT/.claude/.gitignore" ]]; then
     gi_ok=true
     for entry in "settings.local.json" "hooks/injection-guard.log" "hooks/confirmed-threats.json"; do
@@ -94,11 +102,10 @@ else
     fail ".gitignore created" ".claude/.gitignore not found"
 fi
 
-# Test 7: Hook executes from project location
+# Test 8: Hook executes from project location
 echo ""
 echo "--- Hook execution ---"
 if [[ -x "$TEMP_PROJECT/.claude/hooks/injection-guard.sh" ]]; then
-    # Pipe benign JSON and check for clean pass
     test_input='{"tool_name":"WebFetch","tool_result":{"content":"Hello world, nothing suspicious here."}}'
     hook_output=$(echo "$test_input" | GUARD_CONFIG="$TEMP_PROJECT/.claude/hooks/injection-guard.conf" \
         GUARD_PATTERNS="$TEMP_PROJECT/.claude/hooks/injection-patterns.conf" \
@@ -115,7 +122,7 @@ fi
 
 rm -rf "$TEMP_PROJECT"
 
-# Test 8: Default install (no flag) goes to ~/.claude/ with ~/ paths
+# Test 9: Default install (no flag) goes to ~/.claude/ with ~/ paths
 echo ""
 echo "--- Default install ---"
 FAKE_HOME="$(mktemp -d)"
@@ -132,24 +139,9 @@ else
 fi
 rm -rf "$FAKE_HOME"
 
-# Test 9: --project=DIR installs to specified directory
-echo ""
-echo "--- --project=DIR flag ---"
-TARGET_DIR="$(mktemp -d)"
-bash "$INSTALLER" --project="$TARGET_DIR" > /dev/null 2>&1
-if [[ -d "$TARGET_DIR/.claude/hooks" ]] && [[ -f "$TARGET_DIR/.claude/settings.json" ]]; then
-    if grep -q '".claude/hooks/injection-guard.sh"' "$TARGET_DIR/.claude/settings.json" && \
-       ! grep -q '"~/.claude/' "$TARGET_DIR/.claude/settings.json"; then
-        pass "--project=DIR installs to specified directory with relative paths"
-    else
-        fail "--project=DIR installs to specified directory" "$(cat "$TARGET_DIR/.claude/settings.json")"
-    fi
-else
-    fail "--project=DIR installs to specified directory" "files not created in $TARGET_DIR/.claude/"
-fi
-rm -rf "$TARGET_DIR"
-
 # Test 10: --project=NONEXISTENT errors
+echo ""
+echo "--- Error handling ---"
 nonexist_output=$(bash "$INSTALLER" --project=/tmp/nonexistent-cq-test-$$ 2>&1)
 nonexist_exit=$?
 if [[ "$nonexist_exit" != "0" ]] && echo "$nonexist_output" | grep -q "does not exist"; then
