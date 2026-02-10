@@ -239,7 +239,7 @@
     <h1>claude-quarantine</h1>
     <p class="tagline">Prompt injection security guard for Claude Code. 3-layer defense in depth against adversarial content.</p>
     <div class="badges">
-      <span class="badge-green">66 tests passing</span>
+      <span class="badge-green">68 tests passing</span>
       <span class="badge-green">3 defense layers</span>
       <span class="badge-blue">MIT license</span>
     </div>
@@ -274,8 +274,9 @@
       <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">Or clone and install manually:</p>
       <pre>git clone https://github.com/renatodarrigo/claude-quarantine.git
 cd claude-quarantine
-./install.sh              # User-level (global)
-./install.sh --project    # Project-level (committable)</pre>
+./install.sh                   # User-level (global)
+./install.sh --project         # Project-level (current dir)
+./install.sh --project=~/myapp # Project-level (specific dir)</pre>
       <p style="color:var(--muted); font-size:0.85rem; margin-top:12px;">
         Copies hooks and MCP server and configures <code>settings.json</code>.
         Requires git, Node.js, and npm.

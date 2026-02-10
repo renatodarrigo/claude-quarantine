@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/layers-3-green" alt="3 layers">
-  <img src="https://img.shields.io/badge/tests-66%20passing-brightgreen" alt="66 tests passing">
+  <img src="https://img.shields.io/badge/tests-68%20passing-brightgreen" alt="66 tests passing">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
   <br><br>
   <a href="https://ko-fi.com/renatodarrigo"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
@@ -64,8 +64,9 @@ curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/mai
 ```bash
 git clone https://github.com/renatodarrigo/claude-quarantine.git
 cd claude-quarantine
-./install.sh              # User-level: ~/.claude/ (global, all sessions)
-./install.sh --project    # Project-level: .claude/ (committable, per-project)
+./install.sh                   # User-level: ~/.claude/ (global, all sessions)
+./install.sh --project         # Project-level: .claude/ in current directory
+./install.sh --project=~/myapp # Project-level: ~/myapp/.claude/
 ```
 
 The installer copies hooks and the MCP server and configures `settings.json`. Requires git, Node.js, and npm. If you already have a `settings.json`, you'll need to merge the config manually (the installer will warn you).
@@ -75,7 +76,7 @@ The installer copies hooks and the MCP server and configures `settings.json`. Re
 | Mode | Command | Location | Scope |
 |------|---------|----------|-------|
 | **User-level** | `./install.sh` | `~/.claude/` | All Claude Code sessions |
-| **Project-level** | `./install.sh --project` | `.claude/` | Current project only |
+| **Project-level** | `./install.sh --project[=DIR]` | `.claude/` | Current project (or specified dir) |
 
 **When to use which:**
 - **User-level** (default): You want protection in every Claude Code session
@@ -247,7 +248,7 @@ my_other_rule:MED:please run this command
 ## Testing
 
 ```bash
-./tests/run-all.sh           # Run all 66 tests
+./tests/run-all.sh           # Run all 68 tests
 ./tests/run-all.sh --verbose # With full output
 ```
 

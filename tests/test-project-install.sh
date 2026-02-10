@@ -132,6 +132,32 @@ else
 fi
 rm -rf "$FAKE_HOME"
 
+# Test 9: --project=DIR installs to specified directory
+echo ""
+echo "--- --project=DIR flag ---"
+TARGET_DIR="$(mktemp -d)"
+bash "$INSTALLER" --project="$TARGET_DIR" > /dev/null 2>&1
+if [[ -d "$TARGET_DIR/.claude/hooks" ]] && [[ -f "$TARGET_DIR/.claude/settings.json" ]]; then
+    if grep -q '".claude/hooks/injection-guard.sh"' "$TARGET_DIR/.claude/settings.json" && \
+       ! grep -q '"~/.claude/' "$TARGET_DIR/.claude/settings.json"; then
+        pass "--project=DIR installs to specified directory with relative paths"
+    else
+        fail "--project=DIR installs to specified directory" "$(cat "$TARGET_DIR/.claude/settings.json")"
+    fi
+else
+    fail "--project=DIR installs to specified directory" "files not created in $TARGET_DIR/.claude/"
+fi
+rm -rf "$TARGET_DIR"
+
+# Test 10: --project=NONEXISTENT errors
+nonexist_output=$(bash "$INSTALLER" --project=/tmp/nonexistent-cq-test-$$ 2>&1)
+nonexist_exit=$?
+if [[ "$nonexist_exit" != "0" ]] && echo "$nonexist_output" | grep -q "does not exist"; then
+    pass "--project=NONEXISTENT errors with message"
+else
+    fail "--project=NONEXISTENT errors" "exit=$nonexist_exit output=$nonexist_output"
+fi
+
 echo ""
 echo "--- Project Install Summary: $PASSED/$TOTAL passed, $FAILED failed ---"
 exit $((FAILED > 0 ? 1 : 0))
