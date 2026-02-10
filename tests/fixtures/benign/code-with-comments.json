@@ -1,0 +1,6 @@
+{
+  "tool_name": "Bash",
+  "tool_result": {
+    "content": "// auth.ts - Authentication middleware\n\nimport { Request, Response, NextFunction } from 'express';\nimport jwt from 'jsonwebtoken';\n\n// NOTE: Never store secrets in code comments.\n// Previous implementation had hardcoded API keys, which is a security anti-pattern.\n// Always use environment variables for sensitive configuration.\n\n// TODO: Implement role-based access control\n// The admin should be able to manage user permissions\n// through the proper admin panel interface.\n\nexport function authMiddleware(req: Request, res: Response, next: NextFunction) {\n  const token = req.headers.authorization?.replace('Bearer ', '');\n  \n  if (!token) {\n    return res.status(401).json({ error: 'No token provided' });\n  }\n  \n  try {\n    // Verify the token; reject expired tokens in production\n    const decoded = jwt.verify(token, process.env.JWT_SECRET!);\n    req.user = decoded;\n    next();\n  } catch (err) {\n    // If token validation fails, reject the request immediately\n    // No retry logic needed here — invalid tokens should not be retried\n    return res.status(403).json({ error: 'Invalid token' });\n  }\n}\n\n// Set NODE_ENV=development to enable debug logging\n// This is a diagnostic configuration and should never be used in production"
+  }
+}

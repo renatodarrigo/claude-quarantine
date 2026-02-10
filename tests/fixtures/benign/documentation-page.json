@@ -1,0 +1,6 @@
+{
+  "tool_name": "WebFetch",
+  "tool_result": {
+    "content": "# CLI Reference\n\n## Commands\n\n### `deploy`\n\nDeploys the application to the specified environment.\n\n```bash\n$ myapp deploy --env production --region us-east-1\nDeploying to production...\nBuilding assets... done\nUploading to S3... done\nInvalidating CloudFront cache... done\nDeploy complete!\n```\n\n### `config set`\n\nSets a configuration value.\n\n```bash\n$ myapp config set api_key YOUR_API_KEY_HERE\nConfiguration updated.\n```\n\n### `auth login`\n\nAuthenticates with the API server.\n\n```bash\n$ myapp auth login --token $(cat ~/.config/myapp/token)\nAuthenticated successfully as user@example.com\n```\n\n## Environment Variables\n\n| Variable | Description | Default |\n|----------|-------------|--------|\n| `MYAPP_API_URL` | API endpoint | `https://api.myapp.com` |\n| `MYAPP_LOG_LEVEL` | Logging verbosity | `info` |\n| `MYAPP_TIMEOUT` | Request timeout (ms) | `30000` |\n\n## Troubleshooting\n\nIf you encounter authentication errors, try:\n1. Clear your cached credentials: `rm ~/.config/myapp/token`\n2. Re-authenticate: `myapp auth login`\n3. Check your network connection"
+  }
+}
