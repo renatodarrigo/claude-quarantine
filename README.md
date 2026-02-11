@@ -274,6 +274,53 @@ my_custom_rule:HIGH:send.*credentials.*to.*https?://
 my_other_rule:MED:please run this command
 ```
 
+### Multiple Pattern Files
+
+You can load patterns from multiple files by separating them with colons (`:`):
+
+```bash
+# In ~/.claude/settings.json (for MCP Layer 3)
+{
+  "mcpServers": {
+    "quarantine": {
+      "env": {
+        "GUARD_PATTERNS": "~/.claude/hooks/injection-patterns.conf:~/project/custom-patterns.conf"
+      }
+    }
+  }
+}
+
+# Or export for bash hook (Layers 1+2)
+export GUARD_PATTERNS="~/.claude/hooks/injection-patterns.conf:~/project/custom-patterns.conf"
+```
+
+**Use cases:**
+- Combine base security patterns with domain-specific patterns
+- Separate general injection defenses from project-specific controls
+- Load user-level patterns alongside project-level patterns
+
+**Example: Trading platform patterns**
+```bash
+# ~/claw-trader/trading-patterns.conf
+dangerous_action:HIGH:force (buy|sell) (all|everything)
+risk_bypass:HIGH:disable (risk manager|circuit breaker|safety)
+fund_operation:HIGH:withdraw (all|funds|to address)
+safety_override:HIGH:bypass (safety|checks|validation)
+```
+
+Then configure both files:
+```bash
+export GUARD_PATTERNS="~/.claude/hooks/injection-patterns.conf:~/claw-trader/trading-patterns.conf"
+```
+
+**Behavior:**
+- Files are loaded left-to-right
+- Duplicate patterns are automatically deduplicated
+- All files must use `CATEGORY:SEVERITY:PATTERN` format
+- Tilde (`~`) expands to your home directory
+- Relative paths resolve from `~/.claude/hooks/`
+- Missing files generate warnings but don't stop loading
+
 ## Testing
 
 ```bash

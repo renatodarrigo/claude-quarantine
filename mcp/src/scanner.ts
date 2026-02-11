@@ -47,45 +47,79 @@ let threatsModTime = 0;
 function loadPatterns(patternsFile?: string): PatternEntry[] {
   if (cachedPatterns) return cachedPatterns;
 
-  const file =
+  const fileSpec =
     patternsFile ||
     process.env.GUARD_PATTERNS ||
     resolve(process.env.HOME || "~", ".claude/hooks/injection-patterns.conf");
 
-  let content: string;
-  try {
-    content = readFileSync(file, "utf-8");
-  } catch {
-    console.error(`[quarantine] Could not load patterns from ${file}`);
-    return [];
+  // Split on : to support multiple pattern files
+  const fileList = fileSpec.split(":");
+  const patterns: PatternEntry[] = [];
+  const seen = new Set<string>(); // For deduplication using full pattern key
+
+  for (let file of fileList) {
+    // Expand tilde to HOME
+    if (file.startsWith("~")) {
+      file = resolve(process.env.HOME || "~", file.slice(2));
+    }
+
+    // Resolve relative paths from .claude/hooks directory
+    if (!file.startsWith("/")) {
+      file = resolve(
+        process.env.HOME || "~",
+        ".claude/hooks",
+        file
+      );
+    }
+
+    let content: string;
+    try {
+      content = readFileSync(file, "utf-8");
+    } catch (err) {
+      console.error(`[quarantine] Could not load patterns from ${file}:`, err);
+      continue; // Skip this file but continue with others
+    }
+
+    for (const line of content.split("\n")) {
+      const trimmed = line.trim();
+      if (!trimmed || trimmed.startsWith("#")) continue;
+
+      const firstColon = trimmed.indexOf(":");
+      if (firstColon === -1) continue;
+      const secondColon = trimmed.indexOf(":", firstColon + 1);
+      if (secondColon === -1) continue;
+
+      const category = trimmed.slice(0, firstColon);
+      const severity = trimmed.slice(firstColon + 1, secondColon) as Severity;
+      const pattern = trimmed.slice(secondColon + 1);
+
+      if (!pattern || !["HIGH", "MED", "LOW"].includes(severity)) {
+        console.error(`[quarantine] Invalid pattern format: ${trimmed}`);
+        continue;
+      }
+
+      // Deduplicate using full pattern key (category:severity:pattern)
+      const patternKey = `${category}:${severity}:${pattern}`;
+      if (seen.has(patternKey)) continue;
+      seen.add(patternKey);
+
+      try {
+        patterns.push({
+          category,
+          severity,
+          regex: new RegExp(pattern, "i"),
+          raw: pattern,
+        });
+      } catch (err) {
+        console.error(`[quarantine] Invalid regex: ${pattern}`, err);
+      }
+    }
   }
 
-  const patterns: PatternEntry[] = [];
-  for (const line of content.split("\n")) {
-    const trimmed = line.trim();
-    if (!trimmed || trimmed.startsWith("#")) continue;
-
-    const firstColon = trimmed.indexOf(":");
-    if (firstColon === -1) continue;
-    const secondColon = trimmed.indexOf(":", firstColon + 1);
-    if (secondColon === -1) continue;
-
-    const category = trimmed.slice(0, firstColon);
-    const severity = trimmed.slice(firstColon + 1, secondColon) as Severity;
-    const pattern = trimmed.slice(secondColon + 1);
-
-    if (!pattern || !["HIGH", "MED", "LOW"].includes(severity)) continue;
-
-    try {
-      patterns.push({
-        category,
-        severity,
-        regex: new RegExp(pattern, "i"),
-        raw: pattern,
-      });
-    } catch {
-      console.error(`[quarantine] Invalid regex: ${pattern}`);
-    }
+  if (patterns.length === 0) {
+    console.warn(
+      `[quarantine] No patterns loaded from: ${fileSpec}`
+    );
   }
 
   cachedPatterns = patterns;

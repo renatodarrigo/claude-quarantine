@@ -122,10 +122,35 @@ print(json.dumps(entry, ensure_ascii=False))
     fi
 }
 
-# --- Load patterns from conf ---
+# --- Load patterns from conf (supports colon-separated file list) ---
 load_patterns() {
-    if [[ -f "$PATTERNS_FILE" ]]; then
-        grep -v '^\s*#' "$PATTERNS_FILE" | grep -v '^\s*$' || true
+    local file_list all_patterns=()
+
+    # Split PATTERNS_FILE on : delimiter
+    IFS=':' read -ra file_list <<< "$PATTERNS_FILE"
+
+    for file_path in "${file_list[@]}"; do
+        # Expand tilde to HOME
+        file_path="${file_path/#\~/$HOME}"
+
+        # Resolve relative paths from SCRIPT_DIR
+        if [[ "$file_path" != /* ]]; then
+            file_path="$SCRIPT_DIR/$file_path"
+        fi
+
+        if [[ -f "$file_path" ]]; then
+            # Load patterns from this file
+            while IFS= read -r pattern; do
+                all_patterns+=("$pattern")
+            done < <(grep -v '^\s*#' "$file_path" | grep -v '^\s*$' || true)
+        else
+            echo "Warning: Pattern file not found: $file_path" >&2
+        fi
+    done
+
+    # Deduplicate patterns
+    if [[ ${#all_patterns[@]} -gt 0 ]]; then
+        printf '%s\n' "${all_patterns[@]}" | awk '!seen[$0]++'
     fi
 }
 

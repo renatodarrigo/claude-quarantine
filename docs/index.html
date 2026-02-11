@@ -575,6 +575,45 @@ Installation complete! (v1.2.0)
     </div>
 
     <div class="card">
+      <h3>Multiple Pattern Files</h3>
+      <p>Load patterns from multiple files by separating them with colons (<code>:</code>):</p>
+<pre class="config"><span class="comment"># In ~/.claude/settings.json (for MCP Layer 3)</span>
+{
+  "mcpServers": {
+    "quarantine": {
+      "env": {
+        <span class="key">"GUARD_PATTERNS"</span>: <span class="val">"~/.claude/hooks/injection-patterns.conf:~/project/custom-patterns.conf"</span>
+      }
+    }
+  }
+}
+
+<span class="comment"># Or export for bash hook (Layers 1+2)</span>
+<span class="key">export</span> GUARD_PATTERNS=<span class="val">"~/.claude/hooks/injection-patterns.conf:~/project/custom-patterns.conf"</span></pre>
+
+      <p><strong>Use cases:</strong></p>
+      <ul>
+        <li>Combine base security patterns with domain-specific patterns</li>
+        <li>Separate general injection defenses from project-specific controls</li>
+        <li>Load user-level patterns alongside project-level patterns</li>
+      </ul>
+
+      <p><strong>Example: Trading platform patterns</strong></p>
+<pre class="config"><span class="comment"># ~/claw-trader/trading-patterns.conf</span>
+<span class="key">dangerous_action</span>:<span class="val">HIGH</span>:<span class="val">force (buy|sell) (all|everything)</span>
+<span class="key">risk_bypass</span>:<span class="val">HIGH</span>:<span class="val">disable (risk manager|circuit breaker|safety)</span>
+<span class="key">fund_operation</span>:<span class="val">HIGH</span>:<span class="val">withdraw (all|funds|to address)</span>
+<span class="key">safety_override</span>:<span class="val">HIGH</span>:<span class="val">bypass (safety|checks|validation)</span></pre>
+
+      <p style="color:var(--muted); margin-top:12px;">
+        Files are loaded left-to-right. Duplicate patterns are automatically deduplicated.
+        All files must use <code>CATEGORY:SEVERITY:PATTERN</code> format. Tilde (<code>~</code>)
+        expands to your home directory. Relative paths resolve from <code>~/.claude/hooks/</code>.
+        Missing files generate warnings but don't stop loading.
+      </p>
+    </div>
+
+    <div class="card">
       <h3>Key Files</h3>
       <table>
         <tr><th>File</th><th>Purpose</th></tr>
