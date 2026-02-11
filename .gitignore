@@ -1,3 +1,5 @@
 node_modules/
 dist/
 *.log
+hooks/rate-limit-state.json
+hooks/rate-limit-state.json.lock

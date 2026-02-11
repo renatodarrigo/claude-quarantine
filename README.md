@@ -6,11 +6,11 @@
 
 <p align="center">
   Prompt injection security guard for <a href="https://claude.ai/claude-code">Claude Code</a><br>
-  3-layer defense: pattern scanning, LLM analysis, and MCP sanitization proxy
+  4-layer defense: pattern scanning, LLM analysis, MCP sanitization, and rate limiting
 </p>
 
 <p align="center">
-  <img src="https://img.shields.io/badge/layers-3-green" alt="3 layers">
+  <img src="https://img.shields.io/badge/layers-4-green" alt="4 layers">
   <img src="https://img.shields.io/badge/tests-70%20passing-brightgreen" alt="70 tests passing">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
   <br><br>
@@ -32,7 +32,7 @@ External content flow:
 
   [Layer 3 - MCP Proxy]          [Layer 1+2 - PostToolUse Hooks]
   ────────────────────           ──────────────────────────────
-  secure_fetch / secure_gh       WebFetch / Bash / mcp__*
+  secure_fetch / secure_gh       WebFetch / Bash / web_search / mcp__*
         │                               │
         ▼                               ▼
   Fetch content                   Tool executes normally
@@ -50,6 +50,45 @@ External content flow:
 ```
 
 **Layer 3 is the real defense.** It sanitizes content *before* Claude sees it. Layers 1+2 are a safety net — PostToolUse hooks can only warn, not prevent exposure.
+
+### Layer 4 - Rate Limiting (Exponential Backoff)
+
+Rate limiting tracks sources that repeatedly send malicious input and applies increasing penalties.
+
+**How it works:**
+1. When HIGH or MED threat detected, source is identified (auto-detect or `CLAUDE_SOURCE_ID` env var)
+2. Source is blocked for initial timeout (default: 30s)
+3. Each subsequent violation increases timeout exponentially (1.5x default)
+4. Blocks expire automatically and decay over time with clean usage
+5. Manual override available via `reset-rate-limit.sh`
+
+**Check your status:**
+```bash
+~/.claude/hooks/show-rate-limit.sh
+# Output:
+# Source ID: cli:ren@laptop:pts/2
+# Violation count: 2
+# Backoff level: 1
+# Status: Clean
+```
+
+**Configuration:** See `hooks/injection-guard.conf`:
+```bash
+ENABLE_RATE_LIMIT=true
+RATE_LIMIT_BASE_TIMEOUT=30      # 30 seconds initial
+RATE_LIMIT_MULTIPLIER=1.5       # 1.5x per violation
+RATE_LIMIT_MAX_TIMEOUT=43200    # 12 hour cap
+```
+
+**For API integrations:** Set `CLAUDE_SOURCE_ID` before invoking Claude:
+```bash
+export CLAUDE_SOURCE_ID="api:session_${SESSION_ID}"
+claude "user prompt here"
+```
+
+**Admin tools:**
+- `reset-rate-limit.sh <source_id>` - Clear blocks for a source
+- `reset-rate-limit.sh --list` - Show all tracked sources
 
 ## Quick Start
 
@@ -103,7 +142,7 @@ cd ~/.claude/mcp/claude-quarantine && npm install && npx tsc
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|mcp__.*",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -258,6 +297,16 @@ HIGH_THREAT_ACTION=block
 # Logging
 LOG_FILE=~/.claude/hooks/injection-guard.log
 LOG_THRESHOLD=MED           # Minimum level to log: LOW, MED, HIGH
+
+# Rate limiting (Layer 4)
+ENABLE_RATE_LIMIT=true              # Enable exponential backoff
+RATE_LIMIT_BASE_TIMEOUT=30          # Initial block duration (seconds)
+RATE_LIMIT_MULTIPLIER=1.5           # Exponential multiplier
+RATE_LIMIT_MAX_TIMEOUT=43200        # Maximum block duration (12 hours)
+RATE_LIMIT_DECAY_PERIOD=3600        # Clean period for decay (1 hour)
+RATE_LIMIT_SEVERITY_HIGH=true       # Rate-limit HIGH threats
+RATE_LIMIT_SEVERITY_MED=true        # Rate-limit MED threats
+RATE_LIMIT_SEVERITY_LOW=false       # Don't rate-limit LOW threats
 ```
 
 > **Note:** For project-level installs, `LOG_FILE` defaults to `.claude/hooks/injection-guard.log` (relative path).

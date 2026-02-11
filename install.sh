@@ -160,7 +160,7 @@ else
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|mcp__.*",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -189,7 +189,7 @@ SETTINGS
   "hooks": {
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|mcp__.*",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*",
         "hooks": [
           {
             "type": "command",
@@ -228,7 +228,7 @@ if [[ -f "$CLAUDE_DIR/.quarantine-version" ]]; then
 fi
 echo "Installation complete! ${VERSION_STR:+(v$VERSION_STR)}"
 echo ""
-echo "Layer 1 (Pattern Scanner): Active on all WebFetch, Bash, and MCP tool results"
+echo "Layer 1 (Pattern Scanner): Active on all WebFetch, Bash, web_search, and MCP tool results"
 echo "Layer 3 (MCP Proxy):       Available as secure_fetch, secure_gh, secure_curl tools"
 echo ""
 echo "Configuration: $HOOKS_DIR/injection-guard.conf"

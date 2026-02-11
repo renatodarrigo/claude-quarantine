@@ -30,13 +30,25 @@ LLM_REASONING=""
 LLM_CONFIDENCE=""
 LLM_EXECUTED=false
 
-# Config defaults
-ENABLE_LAYER1=true
-ENABLE_LAYER2=false
-HIGH_THREAT_ACTION=block
-LOG_FILE="$HOME/.claude/hooks/injection-guard.log"
-LOG_THRESHOLD=MED
-LAYER2_MAX_CHARS=10000
+# Config defaults (use environment variables if set, otherwise use defaults)
+ENABLE_LAYER1="${ENABLE_LAYER1:-true}"
+ENABLE_LAYER2="${ENABLE_LAYER2:-false}"
+HIGH_THREAT_ACTION="${HIGH_THREAT_ACTION:-block}"
+LOG_FILE="${LOG_FILE:-$HOME/.claude/hooks/injection-guard.log}"
+LOG_THRESHOLD="${LOG_THRESHOLD:-MED}"
+LAYER2_MAX_CHARS="${LAYER2_MAX_CHARS:-10000}"
+
+# Rate limiting defaults (use environment variables if set, otherwise use defaults)
+ENABLE_RATE_LIMIT="${ENABLE_RATE_LIMIT:-true}"
+RATE_LIMIT_STATE_FILE="${RATE_LIMIT_STATE_FILE:-$HOME/.claude/hooks/rate-limit-state.json}"
+RATE_LIMIT_BASE_TIMEOUT="${RATE_LIMIT_BASE_TIMEOUT:-30}"
+RATE_LIMIT_MULTIPLIER="${RATE_LIMIT_MULTIPLIER:-1.5}"
+RATE_LIMIT_MAX_TIMEOUT="${RATE_LIMIT_MAX_TIMEOUT:-43200}"
+RATE_LIMIT_DECAY_PERIOD="${RATE_LIMIT_DECAY_PERIOD:-3600}"
+RATE_LIMIT_SEVERITY_HIGH="${RATE_LIMIT_SEVERITY_HIGH:-true}"
+RATE_LIMIT_SEVERITY_MED="${RATE_LIMIT_SEVERITY_MED:-true}"
+RATE_LIMIT_SEVERITY_LOW="${RATE_LIMIT_SEVERITY_LOW:-false}"
+RATE_LIMIT_PERSIST="${RATE_LIMIT_PERSIST:-true}"
 
 # --- Load config ---
 load_config() {
@@ -47,12 +59,22 @@ load_config() {
             value="${value%%#*}"
             value="${value// /}"
             case "$key" in
-                ENABLE_LAYER1)      ENABLE_LAYER1="$value" ;;
-                ENABLE_LAYER2)      ENABLE_LAYER2="$value" ;;
-                HIGH_THREAT_ACTION) HIGH_THREAT_ACTION="$value" ;;
-                LOG_FILE)           LOG_FILE="${value/#\~/$HOME}" ;;
-                LOG_THRESHOLD)      LOG_THRESHOLD="$value" ;;
-                LAYER2_MAX_CHARS)   LAYER2_MAX_CHARS="$value" ;;
+                ENABLE_LAYER1)              ENABLE_LAYER1="${ENABLE_LAYER1:-$value}" ;;
+                ENABLE_LAYER2)              ENABLE_LAYER2="${ENABLE_LAYER2:-$value}" ;;
+                HIGH_THREAT_ACTION)         HIGH_THREAT_ACTION="${HIGH_THREAT_ACTION:-$value}" ;;
+                LOG_FILE)                   LOG_FILE="${LOG_FILE:-${value/#\~/$HOME}}" ;;
+                LOG_THRESHOLD)              LOG_THRESHOLD="${LOG_THRESHOLD:-$value}" ;;
+                LAYER2_MAX_CHARS)           LAYER2_MAX_CHARS="${LAYER2_MAX_CHARS:-$value}" ;;
+                ENABLE_RATE_LIMIT)          ENABLE_RATE_LIMIT="${ENABLE_RATE_LIMIT:-$value}" ;;
+                RATE_LIMIT_STATE_FILE)      RATE_LIMIT_STATE_FILE="${RATE_LIMIT_STATE_FILE:-${value/#\~/$HOME}}" ;;
+                RATE_LIMIT_BASE_TIMEOUT)    RATE_LIMIT_BASE_TIMEOUT="${RATE_LIMIT_BASE_TIMEOUT:-$value}" ;;
+                RATE_LIMIT_MULTIPLIER)      RATE_LIMIT_MULTIPLIER="${RATE_LIMIT_MULTIPLIER:-$value}" ;;
+                RATE_LIMIT_MAX_TIMEOUT)     RATE_LIMIT_MAX_TIMEOUT="${RATE_LIMIT_MAX_TIMEOUT:-$value}" ;;
+                RATE_LIMIT_DECAY_PERIOD)    RATE_LIMIT_DECAY_PERIOD="${RATE_LIMIT_DECAY_PERIOD:-$value}" ;;
+                RATE_LIMIT_SEVERITY_HIGH)   RATE_LIMIT_SEVERITY_HIGH="${RATE_LIMIT_SEVERITY_HIGH:-$value}" ;;
+                RATE_LIMIT_SEVERITY_MED)    RATE_LIMIT_SEVERITY_MED="${RATE_LIMIT_SEVERITY_MED:-$value}" ;;
+                RATE_LIMIT_SEVERITY_LOW)    RATE_LIMIT_SEVERITY_LOW="${RATE_LIMIT_SEVERITY_LOW:-$value}" ;;
+                RATE_LIMIT_PERSIST)         RATE_LIMIT_PERSIST="${RATE_LIMIT_PERSIST:-$value}" ;;
             esac
         done < "$CONF_FILE"
     fi
@@ -72,6 +94,317 @@ severity_num() {
 generate_id() {
     # 8-char hex ID from /dev/urandom
     head -c 4 /dev/urandom | od -An -tx1 | tr -d ' \n'
+}
+
+# --- Rate Limiting Functions ---
+
+# Generate source identifier (hybrid env var + auto-detection)
+generate_source_id() {
+    # Priority 1: Explicit source ID from environment
+    if [[ -n "${CLAUDE_SOURCE_ID:-}" ]]; then
+        printf '%s' "$CLAUDE_SOURCE_ID"
+        return 0
+    fi
+
+    # Priority 2: Auto-detection from environment
+    local source_type="" source_id=""
+
+    # Check for SSH session
+    if [[ -n "${SSH_CLIENT:-}" ]] || [[ -n "${SSH_CONNECTION:-}" ]]; then
+        local remote_ip
+        remote_ip=$(echo "${SSH_CLIENT:-${SSH_CONNECTION:-}}" | awk '{print $1}')
+        source_type="ssh"
+        source_id="${USER}@${remote_ip}"
+    # Check for tmux session
+    elif [[ -n "${TMUX:-}" ]]; then
+        local tmux_session
+        tmux_session=$(tmux display-message -p '#S' 2>/dev/null || echo "unknown")
+        source_type="tmux"
+        source_id="${USER}:${tmux_session}"
+    # Check for screen session
+    elif [[ -n "${STY:-}" ]]; then
+        source_type="screen"
+        source_id="${USER}:${STY}"
+    # Local terminal
+    elif [[ -n "${TTY:-}" ]] || tty &>/dev/null; then
+        local tty_name
+        tty_name=$(tty 2>/dev/null | sed 's|/dev/||' || echo "notty")
+        source_type="cli"
+        source_id="${USER}@${HOSTNAME}:${tty_name}"
+    fi
+
+    # Return detected source or unknown fallback
+    if [[ -n "$source_id" ]]; then
+        printf '%s:%s' "$source_type" "$source_id"
+    else
+        # Priority 3: Unknown fallback (rate-limited aggressively)
+        printf 'unknown:%s' "$(date +%s)"
+    fi
+}
+
+# Check if source is currently rate-limited
+check_rate_limit() {
+    local source_id="$1"
+
+    # Skip if rate limiting disabled
+    if [[ "${ENABLE_RATE_LIMIT:-true}" != "true" ]]; then
+        return 0  # allowed
+    fi
+
+    local state_file="${RATE_LIMIT_STATE_FILE:-$HOME/.claude/hooks/rate-limit-state.json}"
+
+    # If state file doesn't exist, assume allowed
+    if [[ ! -f "$state_file" ]]; then
+        return 0
+    fi
+
+    # Check if source is blocked using python3
+    local blocked_info
+    blocked_info=$(python3 -c "
+import json, sys
+from datetime import datetime, timezone
+
+try:
+    with open('$state_file') as f:
+        state = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(0)  # Allow on error (fail-open)
+
+sources = state.get('sources', {})
+source_id = '$source_id'
+
+if source_id not in sources:
+    sys.exit(0)  # Not tracked, allow
+
+src = sources[source_id]
+blocked_until = src.get('blocked_until')
+
+if not blocked_until:
+    sys.exit(0)  # Not blocked
+
+try:
+    block_time = datetime.fromisoformat(blocked_until.replace('Z', '+00:00'))
+    now = datetime.now(timezone.utc)
+
+    if block_time > now:
+        remaining = int((block_time - now).total_seconds())
+        print(remaining)
+        sys.exit(1)  # Blocked
+    else:
+        sys.exit(0)  # Block expired
+except (ValueError, AttributeError):
+    sys.exit(0)  # Error parsing, allow
+" 2>/dev/null)
+
+    local rc=$?
+    if [[ $rc -eq 1 ]]; then
+        # Blocked - store remaining seconds for error message
+        RATE_LIMIT_BLOCKED_SECONDS="${blocked_info:-0}"
+        return 1
+    fi
+
+    return 0  # Allowed
+}
+
+# Get remaining block duration in seconds
+get_blocked_seconds() {
+    printf '%s' "${RATE_LIMIT_BLOCKED_SECONDS:-0}"
+}
+
+# Record violation and update backoff
+record_violation() {
+    local source_id="$1" threat_id="$2" severity="$3"
+
+    # Skip if rate limiting disabled
+    if [[ "${ENABLE_RATE_LIMIT:-true}" != "true" ]]; then
+        return 0
+    fi
+
+    # Check severity threshold
+    local should_rate_limit=false
+    case "$severity" in
+        HIGH)
+            [[ "${RATE_LIMIT_SEVERITY_HIGH:-true}" == "true" ]] && should_rate_limit=true
+            ;;
+        MED)
+            [[ "${RATE_LIMIT_SEVERITY_MED:-true}" == "true" ]] && should_rate_limit=true
+            ;;
+        LOW)
+            [[ "${RATE_LIMIT_SEVERITY_LOW:-false}" == "true" ]] && should_rate_limit=true
+            ;;
+    esac
+
+    if [[ "$should_rate_limit" != "true" ]]; then
+        return 0
+    fi
+
+    local state_file="${RATE_LIMIT_STATE_FILE:-$HOME/.claude/hooks/rate-limit-state.json}"
+    local state_dir
+    state_dir="$(dirname "$state_file")"
+
+    # Ensure directory exists
+    [[ -d "$state_dir" ]] || mkdir -p "$state_dir"
+
+    # Use flock for atomic update (5 second timeout)
+    (
+        if ! flock -w 5 200; then
+            echo "Warning: Could not acquire lock on $state_file" >&2
+            return 1
+        fi
+
+        # Load or initialize state
+        local state_json
+        if [[ -f "$state_file" ]]; then
+            state_json=$(cat "$state_file")
+        else
+            state_json='{"sources":{},"version":1}'
+        fi
+
+        # Update state with python3
+        python3 -c "
+import json, sys, os, tempfile
+from datetime import datetime, timezone, timedelta
+
+state = json.loads('''$state_json''')
+sources = state.setdefault('sources', {})
+source_id = '$source_id'
+threat_id = '$threat_id'
+severity = '$severity'
+
+# Get current source data or initialize
+src = sources.setdefault(source_id, {
+    'source_id': source_id,
+    'source_type': source_id.split(':')[0] if ':' in source_id else 'unknown',
+    'violation_count': 0,
+    'backoff_level': 0,
+    'first_violation': None,
+    'last_violation': None,
+    'last_threat_ids': [],
+    'last_severities': []
+})
+
+# Increment violation count and backoff level
+src['violation_count'] = src.get('violation_count', 0) + 1
+src['backoff_level'] = src.get('backoff_level', 0) + 1
+
+# Update timestamps
+now = datetime.now(timezone.utc).isoformat()
+if not src.get('first_violation'):
+    src['first_violation'] = now
+src['last_violation'] = now
+
+# Track recent threats (keep last 10)
+last_threats = src.get('last_threat_ids', [])
+last_threats.append(threat_id)
+src['last_threat_ids'] = last_threats[-10:]
+
+last_severities = src.get('last_severities', [])
+last_severities.append(severity)
+src['last_severities'] = last_severities[-10:]
+
+# Calculate timeout using exponential backoff
+base_timeout = float(os.environ.get('RATE_LIMIT_BASE_TIMEOUT', '30'))
+multiplier = float(os.environ.get('RATE_LIMIT_MULTIPLIER', '1.5'))
+max_timeout = float(os.environ.get('RATE_LIMIT_MAX_TIMEOUT', '43200'))
+backoff_level = src['backoff_level']
+
+timeout_seconds = min(
+    base_timeout * (multiplier ** backoff_level),
+    max_timeout
+)
+
+# Set blocked_until timestamp
+blocked_until = datetime.now(timezone.utc) + timedelta(seconds=timeout_seconds)
+src['blocked_until'] = blocked_until.isoformat()
+
+# Write atomically
+state_file = '$state_file'
+with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=os.path.dirname(state_file)) as tmp:
+    json.dump(state, tmp, indent=2)
+    tmp_name = tmp.name
+
+os.rename(tmp_name, state_file)
+" 2>/dev/null
+
+    ) 200>"${state_file}.lock"
+}
+
+# Apply graduated decay if clean period elapsed
+check_decay() {
+    local source_id="$1"
+
+    # Skip if rate limiting disabled or persistence disabled
+    if [[ "${ENABLE_RATE_LIMIT:-true}" != "true" ]] || [[ "${RATE_LIMIT_PERSIST:-true}" != "true" ]]; then
+        return 0
+    fi
+
+    local state_file="${RATE_LIMIT_STATE_FILE:-$HOME/.claude/hooks/rate-limit-state.json}"
+
+    if [[ ! -f "$state_file" ]]; then
+        return 0
+    fi
+
+    # Use flock for atomic update
+    (
+        if ! flock -w 5 200; then
+            return 1
+        fi
+
+        # Apply decay with python3
+        python3 -c "
+import json, sys, os, tempfile
+from datetime import datetime, timezone, timedelta
+
+try:
+    with open('$state_file') as f:
+        state = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(0)
+
+sources = state.get('sources', {})
+source_id = '$source_id'
+
+if source_id not in sources:
+    sys.exit(0)
+
+src = sources[source_id]
+backoff_level = src.get('backoff_level', 0)
+
+if backoff_level == 0:
+    sys.exit(0)  # Already at minimum
+
+last_violation = src.get('last_violation')
+if not last_violation:
+    sys.exit(0)
+
+try:
+    last_time = datetime.fromisoformat(last_violation.replace('Z', '+00:00'))
+    now = datetime.now(timezone.utc)
+    elapsed = (now - last_time).total_seconds()
+
+    # Calculate required clean time (graduated decay)
+    decay_period = float(os.environ.get('RATE_LIMIT_DECAY_PERIOD', '3600'))
+    required_clean_time = decay_period * (backoff_level + 1)
+
+    if elapsed > required_clean_time:
+        # Decay backoff level
+        src['backoff_level'] = max(0, backoff_level - 1)
+
+        # Clear blocked_until if decayed
+        if src['backoff_level'] == 0:
+            src['blocked_until'] = None
+
+        # Write atomically
+        state_file = '$state_file'
+        with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=os.path.dirname(state_file)) as tmp:
+            json.dump(state, tmp, indent=2)
+            tmp_name = tmp.name
+        os.rename(tmp_name, state_file)
+except (ValueError, AttributeError):
+    pass  # Error parsing, skip decay
+" 2>/dev/null
+
+    ) 200>"${state_file}.lock"
 }
 
 # --- JSON structured logging (JSONL) ---
@@ -500,6 +833,26 @@ main() {
         exit 0
     fi
 
+    # Generate source ID for rate limiting
+    local SOURCE_ID
+    SOURCE_ID=$(generate_source_id)
+
+    # Check rate limit FIRST (before any scanning)
+    if ! check_rate_limit "$SOURCE_ID"; then
+        local blocked_secs remaining_mins
+        blocked_secs=$(get_blocked_seconds)
+        remaining_mins=$((blocked_secs / 60))
+
+        local msg="RATE LIMIT: Source blocked for ${remaining_mins}m due to repeated malicious input. "
+        msg+="Violations increase block duration exponentially. Wait or contact admin."
+
+        printf '{"systemMessage":"%s","blocked":true}\n' "$(json_escape "$msg")"
+        exit 2
+    fi
+
+    # Apply decay logic (reduce backoff if clean period elapsed)
+    check_decay "$SOURCE_ID"
+
     local fields
     fields=$(extract_fields "$input") || true
 
@@ -523,6 +876,12 @@ main() {
         SCAN_CATEGORIES="confirmed_threat"
         SCAN_INDICATORS="matched confirmed threat $CONFIRMED_MATCH"
         CONTENT_SNIPPET=$(printf '%s' "$content" | head -c 300)
+
+        # Record violation for rate limiting
+        local threat_id
+        threat_id=$(generate_id)
+        record_violation "$SOURCE_ID" "$threat_id" "$SCAN_SEVERITY"
+
         log_event "$SCAN_SEVERITY" "$TOOL_NAME" "$SCAN_CATEGORIES" "$SCAN_INDICATORS" "$CONTENT_SNIPPET" "$CONFIRMED_MATCH"
         build_output_and_exit "$SCAN_SEVERITY" "$SCAN_CATEGORIES" "$SCAN_INDICATORS"
     fi
@@ -557,6 +916,12 @@ main() {
     # Log + snippet if threat detected
     if [[ "$SCAN_SEVERITY" != "NONE" ]]; then
         CONTENT_SNIPPET=$(extract_snippet "$content" "$SCAN_INDICATORS")
+
+        # Record violation for rate limiting
+        local threat_id
+        threat_id=$(generate_id)
+        record_violation "$SOURCE_ID" "$threat_id" "$SCAN_SEVERITY"
+
         log_event "$SCAN_SEVERITY" "$TOOL_NAME" "$SCAN_CATEGORIES" "$SCAN_INDICATORS" "$CONTENT_SNIPPET" "" \
             "$LLM_EXECUTED" "$LLM_SEVERITY" "$LLM_REASONING" "$LLM_CONFIDENCE"
     fi
