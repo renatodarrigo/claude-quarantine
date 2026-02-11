@@ -344,20 +344,18 @@ cd claude-quarantine
       </div>
     </div>
 
-    <div style="margin-top: 32px; text-align: center;">
-      <h3 style="color: var(--olive); font-size: 0.85rem; margin-bottom: 16px;">Layer 4 &mdash; Rate Limiting (Cross-Cutting)</h3>
-      <div style="background: var(--card); border: 1px solid var(--olive); border-radius: 8px; padding: 16px; max-width: 600px; margin: 0 auto;">
-        <div style="display: flex; justify-content: center; align-items: center; gap: 12px; flex-wrap: wrap; font-size: 0.85rem;">
-          <div class="diagram-step" style="background: var(--bg);">Detect repeat offender</div>
-          <div class="diagram-arrow">&rarr;</div>
-          <div class="diagram-step hl" style="background: var(--bg);">Apply backoff penalty</div>
-          <div class="diagram-arrow">&rarr;</div>
-          <div class="diagram-step" style="background: var(--bg);">30s → 45s → 68s → ... → 12h</div>
-          <div class="diagram-arrow">&rarr;</div>
-          <div class="diagram-step red" style="background: var(--bg);">Block temporarily</div>
-        </div>
-        <p style="color: var(--muted); font-size: 0.75rem; margin-top: 12px; margin-bottom: 0;">Tracks malicious sources across all layers and applies exponential backoff</p>
+    <div style="margin-top: 32px;">
+      <h3 class="hl" style="font-size: 0.85rem; margin-bottom: 16px; text-align: center;">Layer 4 &mdash; Rate Limiting (Cross-Cutting)</h3>
+      <div class="diagram-steps" style="margin: 0 auto;">
+        <div class="diagram-step">Detect repeat offender</div>
+        <div class="diagram-arrow">&darr;</div>
+        <div class="diagram-step hl">Apply exponential backoff</div>
+        <div class="diagram-arrow">&darr;</div>
+        <div class="diagram-step">30s → 45s → 68s → ... → 12h</div>
+        <div class="diagram-arrow">&darr;</div>
+        <div class="diagram-step red">Block source temporarily</div>
       </div>
+      <p style="color: var(--muted); font-size: 0.8rem; margin-top: 16px; text-align: center; max-width: 500px; margin-left: auto; margin-right: auto;">Tracks malicious sources across all layers and automatically blocks repeat offenders</p>
     </div>
   </section>
 
