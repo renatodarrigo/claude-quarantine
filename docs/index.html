@@ -312,7 +312,7 @@ cd claude-quarantine
   <!-- How It Works -->
   <section>
     <h2>How It Works</h2>
-    <p class="intro">Content flows through two independent paths. Layer 3 (MCP proxy) is the true firewall &mdash; it sanitizes before Claude sees anything. Layers 1+2 are a safety net for built-in tools.</p>
+    <p class="intro">Content flows through two independent paths. Layer 3 (MCP proxy) is the true firewall &mdash; it sanitizes before Claude sees anything. Layers 1+2 are a safety net for built-in tools. Layer 4 (rate limiting) applies exponential backoff to sources that repeatedly send malicious content across all layers.</p>
     <div class="diagram-grid">
       <div class="diagram-col">
         <h3 class="hl">Layer 3 &mdash; MCP Proxy</h3>
