@@ -208,11 +208,12 @@
       border-collapse: collapse;
       font-size: 0.85rem;
       margin-top: 12px;
+      table-layout: fixed;
     }
-    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
+    th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); word-wrap: break-word; }
     th { color: var(--olive); font-weight: 600; }
     td { color: var(--muted); }
-    td code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: var(--olive); }
+    td code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: var(--olive); word-break: break-all; }
 
     /* Blockquote */
     blockquote {
