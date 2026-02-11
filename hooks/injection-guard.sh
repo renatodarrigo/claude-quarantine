@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-quarantine — Layer 1: Pattern-based prompt injection scanner
+# claude-guard — Layer 1: Pattern-based prompt injection scanner
 # PostToolUse hook for Claude Code
 #
 # Reads tool result JSON from stdin, scans for injection patterns,

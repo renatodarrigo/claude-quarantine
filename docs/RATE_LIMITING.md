@@ -2,7 +2,7 @@
 
 ## Overview
 
-Claude-quarantine's rate limiting system tracks sources that repeatedly send malicious input and applies exponential backoff penalties. This prevents automated attacks and provides progressive deterrence while remaining lenient for occasional false positives.
+Claude-guard's rate limiting system tracks sources that repeatedly send malicious input and applies exponential backoff penalties. This prevents automated attacks and provides progressive deterrence while remaining lenient for occasional false positives.
 
 ## How Sources Are Identified
 

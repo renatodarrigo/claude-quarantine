@@ -36,22 +36,22 @@ FAKE_HOME="$(mktemp -d)"
 HOME="$FAKE_HOME" bash "$INSTALLER" > /dev/null 2>&1
 expected_version=$(cat "$REPO_DIR/VERSION" | tr -d '[:space:]')
 
-if [[ -f "$FAKE_HOME/.claude/.quarantine-version" ]]; then
-    installed_version=$(cat "$FAKE_HOME/.claude/.quarantine-version" | tr -d '[:space:]')
+if [[ -f "$FAKE_HOME/.claude/.guard-version" ]]; then
+    installed_version=$(cat "$FAKE_HOME/.claude/.guard-version" | tr -d '[:space:]')
     if [[ "$installed_version" == "$expected_version" ]]; then
-        pass "Installer writes .quarantine-version marker ($installed_version)"
+        pass "Installer writes .guard-version marker ($installed_version)"
     else
         fail "Version marker matches VERSION" "Expected '$expected_version', got '$installed_version'"
     fi
 else
-    fail "Installer writes .quarantine-version marker" "File not found at $FAKE_HOME/.claude/.quarantine-version"
+    fail "Installer writes .guard-version marker" "File not found at $FAKE_HOME/.claude/.guard-version"
 fi
 
-# Test 3: Installer copies update-quarantine.md (user-level)
-if [[ -f "$FAKE_HOME/.claude/commands/update-quarantine.md" ]]; then
-    pass "Installer copies update-quarantine.md to commands/"
+# Test 3: Installer copies update-guard.md (user-level)
+if [[ -f "$FAKE_HOME/.claude/commands/update-guard.md" ]]; then
+    pass "Installer copies update-guard.md to commands/"
 else
-    fail "Installer copies update-quarantine.md" "File not found at $FAKE_HOME/.claude/commands/update-quarantine.md"
+    fail "Installer copies update-guard.md" "File not found at $FAKE_HOME/.claude/commands/update-guard.md"
 fi
 rm -rf "$FAKE_HOME"
 
@@ -61,22 +61,22 @@ echo "--- Project-level install ---"
 TEMP_PROJECT="$(mktemp -d)"
 bash "$INSTALLER" --project="$TEMP_PROJECT" > /dev/null 2>&1
 
-if [[ -f "$TEMP_PROJECT/.claude/.quarantine-version" ]]; then
-    proj_version=$(cat "$TEMP_PROJECT/.claude/.quarantine-version" | tr -d '[:space:]')
+if [[ -f "$TEMP_PROJECT/.claude/.guard-version" ]]; then
+    proj_version=$(cat "$TEMP_PROJECT/.claude/.guard-version" | tr -d '[:space:]')
     if [[ "$proj_version" == "$expected_version" ]]; then
-        pass "Project-level install writes .quarantine-version marker ($proj_version)"
+        pass "Project-level install writes .guard-version marker ($proj_version)"
     else
         fail "Project-level version marker matches VERSION" "Expected '$expected_version', got '$proj_version'"
     fi
 else
-    fail "Project-level install writes .quarantine-version marker" "File not found at $TEMP_PROJECT/.claude/.quarantine-version"
+    fail "Project-level install writes .guard-version marker" "File not found at $TEMP_PROJECT/.claude/.guard-version"
 fi
 
 # Test 5: Project-level install copies update skill
-if [[ -f "$TEMP_PROJECT/.claude/commands/update-quarantine.md" ]]; then
-    pass "Project-level install copies update-quarantine.md"
+if [[ -f "$TEMP_PROJECT/.claude/commands/update-guard.md" ]]; then
+    pass "Project-level install copies update-guard.md"
 else
-    fail "Project-level install copies update-quarantine.md" "File not found at $TEMP_PROJECT/.claude/commands/update-quarantine.md"
+    fail "Project-level install copies update-guard.md" "File not found at $TEMP_PROJECT/.claude/commands/update-guard.md"
 fi
 rm -rf "$TEMP_PROJECT"
 
@@ -95,7 +95,7 @@ HOME="$FAKE_HOME2" bash "$INSTALLER" > /dev/null 2>&1
 config_after=$(cat "$FAKE_HOME2/.claude/hooks/injection-guard.conf")
 
 if [[ "$config_before" == "$config_after" ]]; then
-    reinstall_version=$(cat "$FAKE_HOME2/.claude/.quarantine-version" | tr -d '[:space:]')
+    reinstall_version=$(cat "$FAKE_HOME2/.claude/.guard-version" | tr -d '[:space:]')
     if [[ "$reinstall_version" == "$expected_version" ]]; then
         pass "Re-install preserves config and updates version marker"
     else
@@ -106,19 +106,19 @@ else
 fi
 rm -rf "$FAKE_HOME2"
 
-# Test 7: update-quarantine.md contains required sections
+# Test 7: update-guard.md contains required sections
 echo ""
 echo "--- Skill validation ---"
-skill_file="$REPO_DIR/update-quarantine.md"
+skill_file="$REPO_DIR/update-guard.md"
 skill_ok=true
 for section in "File locations" "Procedure" "Important rules"; do
     if ! grep -q "$section" "$skill_file"; then
         skill_ok=false
-        fail "update-quarantine.md contains '$section' section" "Section not found"
+        fail "update-guard.md contains '$section' section" "Section not found"
     fi
 done
 if $skill_ok; then
-    pass "update-quarantine.md contains all required sections"
+    pass "update-guard.md contains all required sections"
 fi
 
 echo ""

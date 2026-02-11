@@ -7,6 +7,8 @@ HOOK="$HOME/.claude/hooks/injection-guard.sh"
 PAYLOADS_DIR="$SCRIPT_DIR/fixtures/payloads"
 
 export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export ENABLE_RATE_LIMIT=false
+export GUARD_CONFIRMED=/dev/null
 
 PASSED=0
 FAILED=0
@@ -21,7 +23,15 @@ run_hook_with_config() {
     conf_file="$(mktemp)"
     echo "$config_content" > "$conf_file"
     local output exit_code
-    output=$(GUARD_CONFIG="$conf_file" bash "$HOOK" < "$fixture" 2>/dev/null)
+    # Export each config key as env var so it takes precedence over defaults
+    local env_cmd="GUARD_CONFIG=$conf_file"
+    while IFS='=' read -r key value; do
+        key="${key%%#*}"; key="${key// /}"
+        value="${value%%#*}"; value="${value// /}"
+        [[ -z "$key" ]] && continue
+        env_cmd="$env_cmd $key=$value"
+    done <<< "$config_content"
+    output=$(eval "$env_cmd bash '$HOOK'" < "$fixture" 2>/dev/null)
     exit_code=$?
     rm -f "$conf_file"
     echo "$exit_code:$output"
@@ -38,6 +48,7 @@ LOW_PAYLOAD="$SCRIPT_DIR/fixtures/benign/normal-github-issue.json"
 echo "--- HIGH_THREAT_ACTION tests ---"
 result=$(run_hook_with_config "$HIGH_PAYLOAD" "
 ENABLE_LAYER1=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/cq-test-config.log
 LOG_THRESHOLD=LOW
@@ -52,6 +63,7 @@ fi
 # Test 2: HIGH_THREAT_ACTION=warn → same HIGH payload → exit 0 with systemMessage
 result=$(run_hook_with_config "$HIGH_PAYLOAD" "
 ENABLE_LAYER1=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=warn
 LOG_FILE=/tmp/cq-test-config.log
 LOG_THRESHOLD=LOW
@@ -69,6 +81,7 @@ echo ""
 echo "--- Layer toggle tests ---"
 result=$(run_hook_with_config "$HIGH_PAYLOAD" "
 ENABLE_LAYER1=false
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/cq-test-config.log
 LOG_THRESHOLD=LOW
@@ -88,6 +101,7 @@ LOG_TMP="/tmp/cq-test-log-low-$$.log"
 rm -f "$LOG_TMP"
 run_hook_with_config "$MED_PAYLOAD" "
 ENABLE_LAYER1=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=$LOG_TMP
 LOG_THRESHOLD=LOW
@@ -104,6 +118,7 @@ LOG_TMP="/tmp/cq-test-log-high-$$.log"
 rm -f "$LOG_TMP"
 run_hook_with_config "$MED_PAYLOAD" "
 ENABLE_LAYER1=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=$LOG_TMP
 LOG_THRESHOLD=HIGH

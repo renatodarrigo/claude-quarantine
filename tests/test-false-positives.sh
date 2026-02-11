@@ -11,6 +11,7 @@ TEST_CONF="$(mktemp)"
 cat > "$TEST_CONF" <<'EOF'
 ENABLE_LAYER1=true
 ENABLE_LAYER2=false
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/injection-guard-fp-test.log
 LOG_THRESHOLD=LOW
@@ -18,6 +19,7 @@ EOF
 
 export GUARD_CONFIG="$TEST_CONF"
 export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export ENABLE_RATE_LIMIT=false
 
 PASSED=0
 FAILED=0

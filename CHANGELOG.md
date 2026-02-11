@@ -2,8 +2,8 @@
 
 ## 1.1.0
 
-- Added `/update-quarantine` slash command for in-place updates
-- Added `VERSION` file and `.quarantine-version` marker for version tracking
+- Added `/update-guard` slash command for in-place updates
+- Added `VERSION` file and `.guard-version` marker for version tracking
 - Added `CHANGELOG.md`
 
 ## 1.0.0

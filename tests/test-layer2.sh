@@ -8,6 +8,8 @@ PAYLOADS_DIR="$SCRIPT_DIR/fixtures/payloads"
 BENIGN_DIR="$SCRIPT_DIR/fixtures/benign"
 
 export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export ENABLE_RATE_LIMIT=false
+export GUARD_CONFIRMED=/dev/null
 
 PASSED=0
 FAILED=0
@@ -24,7 +26,15 @@ run_hook() {
     local conf_file
     conf_file="$(mktemp)"
     printf '%s\n' "$conf_content" > "$conf_file"
-    GUARD_CONFIG="$conf_file" bash "$HOOK" < "$fixture" >"$out_file" 2>"$err_file"
+    # Export each config key as env var so it takes precedence over defaults
+    local env_cmd="GUARD_CONFIG=$conf_file"
+    while IFS='=' read -r key value; do
+        key="${key%%#*}"; key="${key// /}"
+        value="${value%%#*}"; value="${value// /}"
+        [[ -z "$key" ]] && continue
+        env_cmd="$env_cmd $key=$value"
+    done <<< "$conf_content"
+    eval "$env_cmd bash '$HOOK'" < "$fixture" >"$out_file" 2>"$err_file"
     local rc=$?
     rm -f "$conf_file"
     return $rc
@@ -38,6 +48,7 @@ MED_PAYLOAD="$PAYLOADS_DIR/encoded-base64.json"
 BENIGN_PAYLOAD="$BENIGN_DIR/normal-github-issue.json"
 L2_CONF="ENABLE_LAYER1=true
 ENABLE_LAYER2=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/cq-test-l2.log
 LOG_THRESHOLD=LOW"
@@ -96,7 +107,7 @@ MOCKEOF
 chmod +x "$MOCK_DIR/claude"
 conf_file="$(mktemp)"
 printf '%s\n' "$L2_CONF" > "$conf_file"
-PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" bash "$HOOK" < "$BENIGN_PAYLOAD" >"$out" 2>"$err"
+PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" ENABLE_LAYER2=true ENABLE_LAYER1=true ENABLE_RATE_LIMIT=false HIGH_THREAT_ACTION=block bash "$HOOK" < "$BENIGN_PAYLOAD" >"$out" 2>"$err"
 exit_code=$?
 if [[ "$exit_code" == "0" ]]; then
     if grep -q "Layer 2:" "$err"; then
@@ -119,7 +130,7 @@ chmod +x "$MOCK_DIR/claude"
 out="$(mktemp)" err="$(mktemp)"
 conf_file="$(mktemp)"
 printf '%s\n' "$L2_CONF" > "$conf_file"
-PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" bash "$HOOK" < "$BENIGN_PAYLOAD" >"$out" 2>"$err"
+PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" ENABLE_LAYER2=true ENABLE_LAYER1=true ENABLE_RATE_LIMIT=false HIGH_THREAT_ACTION=block bash "$HOOK" < "$BENIGN_PAYLOAD" >"$out" 2>"$err"
 exit_code=$?
 if [[ "$exit_code" == "0" ]]; then
     if grep -q "timed out" "$err"; then
@@ -147,12 +158,13 @@ conf_file="$(mktemp)"
 cat > "$conf_file" <<EOF
 ENABLE_LAYER1=true
 ENABLE_LAYER2=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=$LOG_TMP
 LOG_THRESHOLD=LOW
 EOF
 out="$(mktemp)" err="$(mktemp)"
-PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" bash "$HOOK" < "$MED_PAYLOAD" >"$out" 2>"$err"
+PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" ENABLE_LAYER2=true ENABLE_LAYER1=true ENABLE_RATE_LIMIT=false HIGH_THREAT_ACTION=block LOG_FILE="$LOG_TMP" LOG_THRESHOLD=LOW bash "$HOOK" < "$MED_PAYLOAD" >"$out" 2>"$err"
 if [[ -f "$LOG_TMP" ]]; then
     last_line=$(tail -1 "$LOG_TMP")
     if echo "$last_line" | python3 -c "
@@ -187,6 +199,7 @@ print(json.dumps(data))
 " > "$LARGE_PAYLOAD"
 L2_TRUNC_CONF="ENABLE_LAYER1=true
 ENABLE_LAYER2=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/cq-test-l2-trunc.log
 LOG_THRESHOLD=LOW
@@ -219,11 +232,12 @@ conf_file="$(mktemp)"
 cat > "$conf_file" <<EOF
 ENABLE_LAYER1=true
 ENABLE_LAYER2=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=warn
 LOG_FILE=/tmp/cq-test-l2-escalate.log
 LOG_THRESHOLD=LOW
 EOF
-PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" bash "$HOOK" < "$MED_PAYLOAD" >"$out" 2>"$err"
+PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" ENABLE_LAYER2=true ENABLE_LAYER1=true ENABLE_RATE_LIMIT=false HIGH_THREAT_ACTION=warn bash "$HOOK" < "$MED_PAYLOAD" >"$out" 2>"$err"
 exit_code=$?
 output=$(cat "$out")
 if echo "$output" | grep -q "HIGH"; then
@@ -238,6 +252,7 @@ echo ""
 echo "--- Config toggle ---"
 L2_OFF_CONF="ENABLE_LAYER1=true
 ENABLE_LAYER2=false
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/cq-test-l2-disabled.log
 LOG_THRESHOLD=LOW"

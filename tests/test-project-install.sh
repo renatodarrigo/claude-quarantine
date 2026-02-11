@@ -129,7 +129,7 @@ FAKE_HOME="$(mktemp -d)"
 HOME="$FAKE_HOME" bash "$INSTALLER" > /dev/null 2>&1
 if [[ -f "$FAKE_HOME/.claude/settings.json" ]]; then
     if grep -q '"~/.claude/hooks/injection-guard.sh"' "$FAKE_HOME/.claude/settings.json" && \
-       grep -q '"~/.claude/mcp/claude-quarantine/dist/index.js"' "$FAKE_HOME/.claude/settings.json"; then
+       grep -q '"~/.claude/mcp/claude-guard/dist/index.js"' "$FAKE_HOME/.claude/settings.json"; then
         pass "Default install uses ~/.claude/ with ~/ paths"
     else
         fail "Default install uses ~/.claude/ paths" "$(cat "$FAKE_HOME/.claude/settings.json")"

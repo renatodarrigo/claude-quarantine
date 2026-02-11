@@ -1,4 +1,4 @@
-You are reviewing the claude-quarantine threat detection log. Your job is to present flagged entries to the user for triage: they confirm real threats or dismiss false positives.
+You are reviewing the claude-guard threat detection log. Your job is to present flagged entries to the user for triage: they confirm real threats or dismiss false positives.
 
 ## File locations
 

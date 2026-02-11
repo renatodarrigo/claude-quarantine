@@ -3,12 +3,12 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>claude-quarantine — Prompt Injection Security Guard</title>
+  <title>claude-guard — Prompt Injection Security Guard</title>
   <style>
     :root {
-      --green: #3D4F2F;
-      --olive: #6B8F4A;
-      --cream: #F0FDFA;
+      --navy: #1B2A4A;
+      --blue: #4A7CFF;
+      --ice: #E8F0FE;
       --bg: #1a1a1a;
       --fg: #e0e0e0;
       --muted: #888;
@@ -40,7 +40,7 @@
       font-size: 0.8rem;
       font-weight: 600;
     }
-    .badge-green { background: var(--olive); color: #fff; }
+    .badge-navy { background: var(--navy); color: #fff; }
     .badge-blue { background: #2563eb; color: #fff; }
 
     /* Sections */
@@ -56,14 +56,14 @@
       padding: 24px;
       margin-bottom: 16px;
     }
-    .card h3 { color: var(--olive); font-size: 1rem; margin-bottom: 12px; }
+    .card h3 { color: var(--blue); font-size: 1rem; margin-bottom: 12px; }
     .card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
     .card p:last-child { margin-bottom: 0; }
     .card ul { margin-bottom: 16px; padding-left: 24px; }
     .card ul li { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
     .card pre { margin-bottom: 16px; }
     .card pre:last-child { margin-bottom: 0; }
-    .card code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; color: var(--olive); }
+    .card code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; color: var(--blue); }
     .card .tag {
       display: inline-block;
       padding: 2px 8px;
@@ -86,7 +86,7 @@
       padding: 16px;
       overflow-x: auto;
       font-size: 0.9rem;
-      color: var(--olive);
+      color: var(--blue);
     }
 
     /* Grid layouts */
@@ -129,7 +129,7 @@
       text-align: center;
       font-size: 0.85rem;
     }
-    .flow-arrow { color: var(--olive); font-size: 1.2rem; padding: 0 8px; }
+    .flow-arrow { color: var(--blue); font-size: 1.2rem; padding: 0 8px; }
 
     /* How it works diagram */
     .diagram-grid {
@@ -143,7 +143,7 @@
       margin-bottom: 12px;
       text-align: center;
     }
-    .diagram-col h3.hl { color: var(--olive); }
+    .diagram-col h3.hl { color: var(--blue); }
     .diagram-col h3.yel { color: #fbbf24; }
     .diagram-steps {
       display: flex;
@@ -161,7 +161,7 @@
       width: 100%;
       max-width: 280px;
     }
-    .diagram-step.hl { color: var(--olive); font-weight: 600; }
+    .diagram-step.hl { color: var(--blue); font-weight: 600; }
     .diagram-step.red { color: #f87171; font-weight: 600; }
     .diagram-step.yel { color: #fbbf24; font-weight: 600; }
     .diagram-arrow {
@@ -185,7 +185,7 @@
     }
     pre.config:last-child { margin-bottom: 0; }
     pre.config .comment { color: #666; }
-    pre.config .key { color: var(--olive); }
+    pre.config .key { color: var(--blue); }
     pre.config .val { color: #93c5fd; }
 
     /* Sanitization examples */
@@ -210,14 +210,14 @@
       margin-top: 12px;
     }
     th, td { padding: 10px 12px; text-align: left; border-bottom: 1px solid var(--border); }
-    th { color: var(--olive); font-weight: 600; }
+    th { color: var(--blue); font-weight: 600; }
     td { color: var(--muted); }
-    td code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: var(--olive); }
+    td code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.8rem; color: var(--blue); }
 
     /* Blockquote */
     blockquote {
       background: var(--card);
-      border-left: 3px solid var(--olive);
+      border-left: 3px solid var(--blue);
       border-radius: 0 8px 8px 0;
       padding: 16px 20px;
       color: var(--muted);
@@ -233,7 +233,7 @@
       font-size: 0.85rem;
       border-top: 1px solid var(--border);
     }
-    .footer a { color: var(--olive); text-decoration: none; }
+    .footer a { color: var(--blue); text-decoration: none; }
     .footer a:hover { text-decoration: underline; }
   </style>
 </head>
@@ -243,16 +243,16 @@
 
   <!-- Hero -->
   <div class="hero">
-    <img src="https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/logo.svg" alt="logo">
-    <h1>claude-quarantine</h1>
+    <img src="https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/logo.svg" alt="logo">
+    <h1>claude-guard</h1>
     <p class="tagline">Prompt injection security guard for Claude Code. 4-layer defense in depth with exponential backoff rate limiting.</p>
     <div class="badges">
-      <span class="badge-green">70 tests passing</span>
-      <span class="badge-green">4 defense layers</span>
+      <span class="badge-navy">70 tests passing</span>
+      <span class="badge-navy">4 defense layers</span>
       <span class="badge-blue">MIT license</span>
     </div>
     <p style="margin-top:20px;">
-      <a href="https://github.com/renatodarrigo/claude-quarantine" style="color:var(--muted); text-decoration:none;" title="View on GitHub">
+      <a href="https://github.com/renatodarrigo/claude-guard" style="color:var(--muted); text-decoration:none;" title="View on GitHub">
         <svg height="28" width="28" viewBox="0 0 16 16" fill="currentColor"><path d="M8 0C3.58 0 0 3.58 0 8c0 3.54 2.29 6.53 5.47 7.59.4.07.55-.17.55-.38 0-.19-.01-.82-.01-1.49-2.01.37-2.53-.49-2.69-.94-.09-.23-.48-.94-.82-1.13-.28-.15-.68-.52-.01-.53.63-.01 1.08.58 1.23.82.72 1.21 1.87.87 2.33.66.07-.52.28-.87.51-1.07-1.78-.2-3.64-.89-3.64-3.95 0-.87.31-1.59.82-2.15-.08-.2-.36-1.02.08-2.12 0 0 .67-.21 2.2.82.64-.18 1.32-.27 2-.27s1.36.09 2 .27c1.53-1.04 2.2-.82 2.2-.82.44 1.1.16 1.92.08 2.12.51.56.82 1.27.82 2.15 0 3.07-1.87 3.75-3.65 3.95.29.25.54.73.54 1.48 0 1.07-.01 1.93-.01 2.2 0 .21.15.46.55.38A8.01 8.01 0 0 0 16 8c0-4.42-3.58-8-8-8z"/></svg>
       </a>
     </p>
@@ -278,10 +278,10 @@
     <div class="card">
       <h2>Quick Start</h2>
       <p style="color:var(--muted); font-size:0.85rem; margin-bottom:16px;">One-liner &mdash; copy and paste into your terminal:</p>
-      <pre>curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/install.sh | bash</pre>
+      <pre>curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/install.sh | bash</pre>
       <p style="color:var(--muted); font-size:0.85rem; margin-top:16px;">Or clone and install manually:</p>
-      <pre>git clone https://github.com/renatodarrigo/claude-quarantine.git
-cd claude-quarantine
+      <pre>git clone https://github.com/renatodarrigo/claude-guard.git
+cd claude-guard
 ./install.sh                   # User-level (global)
 ./install.sh --project=~/myapp # Project-level (~/myapp/.claude/)</pre>
       <p style="color:var(--muted); font-size:0.85rem; margin-top:12px;">
@@ -552,18 +552,18 @@ cd claude-quarantine
   <!-- Keeping Up to Date -->
   <section>
     <h2>Keeping Up to Date</h2>
-    <p class="intro">Run the <code>/update-quarantine</code> slash command in Claude Code to check for updates and install them seamlessly.</p>
+    <p class="intro">Run the <code>/update-guard</code> slash command in Claude Code to check for updates and install them seamlessly.</p>
 
     <div class="card">
       <h3>Usage</h3>
       <p>The updater checks your installed version against GitHub, shows what's new, and re-runs the installer &mdash; preserving your config, logs, and confirmed threats.</p>
       <div class="example" style="margin-top:12px;">
-<pre style="margin:0; color:var(--fg); font-size:0.8rem; line-height:1.6;">&gt; /update-quarantine
+<pre style="margin:0; color:var(--fg); font-size:0.8rem; line-height:1.6;">&gt; /update-guard
 
 Installed: v1.1.0
 Latest:    v1.2.0
 
-<span style="color:var(--muted);">Update claude-quarantine to v1.2.0?</span>
+<span style="color:var(--muted);">Update claude-guard to v1.2.0?</span>
 &gt; Update now
 
 Running installer...
@@ -613,7 +613,7 @@ Installation complete! (v1.2.0)
 <pre class="config"><span class="comment"># In ~/.claude/settings.json (for MCP Layer 3)</span>
 {
   "mcpServers": {
-    "quarantine": {
+    "claude-guard": {
       "env": {
         <span class="key">"GUARD_PATTERNS"</span>: <span class="val">"~/.claude/hooks/injection-patterns.conf:~/project/custom-patterns.conf"</span>
       }
@@ -655,10 +655,10 @@ Installation complete! (v1.2.0)
         <tr><td><code>~/.claude/hooks/injection-guard.conf</code></td><td>Config: toggles, Layer 2 settings, logging</td></tr>
         <tr><td><code>~/.claude/hooks/injection-guard.log</code></td><td>Detection log (JSONL, includes Layer 2 metadata)</td></tr>
         <tr><td><code>~/.claude/hooks/confirmed-threats.json</code></td><td>User-confirmed threats for auto-blocking</td></tr>
-        <tr><td><code>~/.claude/mcp/claude-quarantine/</code></td><td>Layer 3 MCP proxy server</td></tr>
+        <tr><td><code>~/.claude/mcp/claude-guard/</code></td><td>Layer 3 MCP proxy server</td></tr>
         <tr><td><code>~/.claude/commands/review-threats.md</code></td><td>/review-threats skill</td></tr>
-        <tr><td><code>~/.claude/commands/update-quarantine.md</code></td><td>/update-quarantine skill</td></tr>
-        <tr><td><code>~/.claude/.quarantine-version</code></td><td>Installed version marker (for update checks)</td></tr>
+        <tr><td><code>~/.claude/commands/update-guard.md</code></td><td>/update-guard skill</td></tr>
+        <tr><td><code>~/.claude/.guard-version</code></td><td>Installed version marker (for update checks)</td></tr>
       </table>
     </div>
   </section>
@@ -683,7 +683,7 @@ Installation complete! (v1.2.0)
   <!-- Footer -->
   <div class="footer">
     <p>
-      <a href="https://github.com/renatodarrigo/claude-quarantine">GitHub</a> &middot;
+      <a href="https://github.com/renatodarrigo/claude-guard">GitHub</a> &middot;
       MIT License &middot;
       Built by <a href="https://github.com/renatodarrigo">Renato D'Arrigo</a> with <a href="https://claude.ai/claude-code">Claude Code</a>
     </p>

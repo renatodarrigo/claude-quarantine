@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-quarantine — Test Runner
+# claude-guard — Test Runner
 # Runs all test suites, prints summary, exits non-zero on any failure
 # Usage: ./tests/run-all.sh [--verbose]
 set -uo pipefail
@@ -24,9 +24,9 @@ SUITE_FAILED=0
 SUITE_TOTAL=0
 FAILED_SUITES=()
 
-echo "╔══════════════════════════════════════════════╗"
-echo "║   claude-quarantine — Test Suite Runner      ║"
-echo "╚══════════════════════════════════════════════╝"
+echo "╔═════════════════════════════════════════╗"
+echo "║    claude-guard — Test Suite Runner     ║"
+echo "╚═════════════════════════════════════════╝"
 echo ""
 
 for entry in "${SUITES[@]}"; do

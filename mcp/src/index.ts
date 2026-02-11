@@ -5,7 +5,7 @@ import { secureFetch } from "./tools/secure-fetch.js";
 import { secureShell } from "./tools/secure-shell.js";
 
 const server = new McpServer({
-  name: "claude-quarantine",
+  name: "claude-guard",
   version: "1.0.0",
 });
 

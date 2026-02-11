@@ -76,7 +76,7 @@ function loadPatterns(patternsFile?: string): PatternEntry[] {
     try {
       content = readFileSync(file, "utf-8");
     } catch (err) {
-      console.error(`[quarantine] Could not load patterns from ${file}:`, err);
+      console.error(`[guard] Could not load patterns from ${file}:`, err);
       continue; // Skip this file but continue with others
     }
 
@@ -94,7 +94,7 @@ function loadPatterns(patternsFile?: string): PatternEntry[] {
       const pattern = trimmed.slice(secondColon + 1);
 
       if (!pattern || !["HIGH", "MED", "LOW"].includes(severity)) {
-        console.error(`[quarantine] Invalid pattern format: ${trimmed}`);
+        console.error(`[guard] Invalid pattern format: ${trimmed}`);
         continue;
       }
 
@@ -111,14 +111,14 @@ function loadPatterns(patternsFile?: string): PatternEntry[] {
           raw: pattern,
         });
       } catch (err) {
-        console.error(`[quarantine] Invalid regex: ${pattern}`, err);
+        console.error(`[guard] Invalid regex: ${pattern}`, err);
       }
     }
   }
 
   if (patterns.length === 0) {
     console.warn(
-      `[quarantine] No patterns loaded from: ${fileSpec}`
+      `[guard] No patterns loaded from: ${fileSpec}`
     );
   }
 

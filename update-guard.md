@@ -1,4 +1,4 @@
-You are updating the claude-quarantine installation to the latest version from GitHub.
+You are updating the claude-guard installation to the latest version from GitHub.
 
 ## File locations
 
@@ -7,21 +7,21 @@ Detect the install location by checking for the hook script:
 - **Project-level**: Check if `.claude/hooks/injection-guard.sh` exists in the current working directory. If so, use `.claude/` as the install root.
 - **User-level**: Otherwise, use `~/.claude/` as the install root.
 
-The version marker file is `{CLAUDE_DIR}/.quarantine-version` where `{CLAUDE_DIR}` is the detected install root (`.claude/` or `~/.claude/`).
+The version marker file is `{CLAUDE_DIR}/.guard-version` where `{CLAUDE_DIR}` is the detected install root (`.claude/` or `~/.claude/`).
 
 ## Procedure
 
-1. **Detect install location** — check if `.claude/hooks/injection-guard.sh` exists in the current working directory. If yes, this is a project-level install (`CLAUDE_DIR=.claude`). Otherwise, check `~/.claude/hooks/injection-guard.sh` for a user-level install (`CLAUDE_DIR=~/.claude`). If neither exists, tell the user claude-quarantine doesn't appear to be installed and stop.
+1. **Detect install location** — check if `.claude/hooks/injection-guard.sh` exists in the current working directory. If yes, this is a project-level install (`CLAUDE_DIR=.claude`). Otherwise, check `~/.claude/hooks/injection-guard.sh` for a user-level install (`CLAUDE_DIR=~/.claude`). If neither exists, tell the user claude-guard doesn't appear to be installed and stop.
 
-2. **Read installed version** — read the file `{CLAUDE_DIR}/.quarantine-version`. If it doesn't exist, the installed version is "unknown (pre-1.1.0)".
+2. **Read installed version** — read the file `{CLAUDE_DIR}/.guard-version`. If it doesn't exist, the installed version is "unknown (pre-1.1.0)".
 
 3. **Fetch latest version** — run:
    ```
-   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/VERSION
+   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/VERSION
    ```
    This returns the latest version string. Trim any whitespace.
 
-4. **Compare versions** — if the installed version equals the latest version, tell the user: "claude-quarantine is already up to date (v{version})." and stop.
+4. **Compare versions** — if the installed version equals the latest version, tell the user: "claude-guard is already up to date (v{version})." and stop.
 
 5. **Show version delta** — display:
    ```
@@ -31,24 +31,24 @@ The version marker file is `{CLAUDE_DIR}/.quarantine-version` where `{CLAUDE_DIR
 
 6. **Fetch changelog (optional)** — attempt to fetch:
    ```
-   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/CHANGELOG.md
+   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/CHANGELOG.md
    ```
    If successful, display the section for the latest version. If it fails, skip silently.
 
-7. **Confirm with user** — use AskUserQuestion to ask: "Update claude-quarantine to v{latest_version}?" with options "Update now" and "Skip". If the user chooses "Skip", stop.
+7. **Confirm with user** — use AskUserQuestion to ask: "Update claude-guard to v{latest_version}?" with options "Update now" and "Skip". If the user chooses "Skip", stop.
 
 8. **Run the installer** — execute the appropriate command:
    - **User-level install**:
      ```
-     curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/install.sh | bash
+     curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/install.sh | bash
      ```
    - **Project-level install** (determine the project root as the parent of `.claude/`):
      ```
-     curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/install.sh | bash -s -- --project={PROJECT_DIR}
+     curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/install.sh | bash -s -- --project={PROJECT_DIR}
      ```
    Where `{PROJECT_DIR}` is the absolute path of the directory containing `.claude/`.
 
-9. **Verify update** — re-read `{CLAUDE_DIR}/.quarantine-version` and confirm it now matches the latest version.
+9. **Verify update** — re-read `{CLAUDE_DIR}/.guard-version` and confirm it now matches the latest version.
 
 10. **Report results** — tell the user:
     - Updated from v{old} to v{new}

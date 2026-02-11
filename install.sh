@@ -1,5 +1,5 @@
 #!/usr/bin/env bash
-# claude-quarantine installer
+# claude-guard installer
 # Copies hooks and MCP server to ~/.claude/ (user) or .claude/ (project) and configures settings.json
 #
 # Usage:
@@ -7,7 +7,7 @@
 #   ./install.sh --project=~/myapp     # Install to ~/myapp/.claude/ (project-level)
 #
 # One-liner install:
-#   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/install.sh | bash
 set -euo pipefail
 
 INSTALL_MODE="user"
@@ -67,8 +67,8 @@ fi
 if [[ -z "$REPO_DIR" || ! -f "$REPO_DIR/hooks/injection-guard.sh" ]]; then
     TEMP_DIR=$(mktemp -d)
     CLEANUP_TEMP=true
-    echo "Downloading claude-quarantine..."
-    if ! git clone --depth 1 https://github.com/renatodarrigo/claude-quarantine.git "$TEMP_DIR" 2>/dev/null; then
+    echo "Downloading claude-guard..."
+    if ! git clone --depth 1 https://github.com/renatodarrigo/claude-guard.git "$TEMP_DIR" 2>/dev/null; then
         echo "Error: Failed to clone repository. Make sure git is installed."
         rm -rf "$TEMP_DIR"
         exit 1
@@ -77,9 +77,9 @@ if [[ -z "$REPO_DIR" || ! -f "$REPO_DIR/hooks/injection-guard.sh" ]]; then
     echo ""
 fi
 HOOKS_DIR="$CLAUDE_DIR/hooks"
-MCP_DIR="$CLAUDE_DIR/mcp/claude-quarantine"
+MCP_DIR="$CLAUDE_DIR/mcp/claude-guard"
 
-echo "claude-quarantine installer"
+echo "claude-guard installer"
 echo "==========================="
 if [[ "$INSTALL_MODE" == "project" ]]; then
     echo "Mode: project-level ($PROJECT_DIR/.claude/)"
@@ -93,7 +93,7 @@ COMMANDS_DIR="$CLAUDE_DIR/commands"
 echo "Installing /review-threats skill to $COMMANDS_DIR..."
 mkdir -p "$COMMANDS_DIR"
 cp "$REPO_DIR/review-threats.md" "$COMMANDS_DIR/"
-cp "$REPO_DIR/update-quarantine.md" "$COMMANDS_DIR/"
+cp "$REPO_DIR/update-guard.md" "$COMMANDS_DIR/"
 
 # --- Install hooks ---
 echo "Installing hooks to $HOOKS_DIR..."
@@ -149,7 +149,7 @@ if [[ -f "$SETTINGS_FILE" ]]; then
     if grep -q "injection-guard" "$SETTINGS_FILE" 2>/dev/null; then
         echo "  Hook already configured in settings.json (skipping)"
     else
-        echo "  WARNING: settings.json exists but doesn't contain claude-quarantine config."
+        echo "  WARNING: settings.json exists but doesn't contain claude-guard config."
         echo "  You need to manually add the hook and MCP server configuration."
         echo "  See the README for the required settings.json entries."
     fi
@@ -172,9 +172,9 @@ else
     ]
   },
   "mcpServers": {
-    "claude-quarantine": {
+    "claude-guard": {
       "command": "node",
-      "args": [".claude/mcp/claude-quarantine/dist/index.js"],
+      "args": [".claude/mcp/claude-guard/dist/index.js"],
       "env": {
         "GUARD_CONFIG": ".claude/hooks/injection-guard.conf",
         "GUARD_PATTERNS": ".claude/hooks/injection-patterns.conf"
@@ -201,9 +201,9 @@ SETTINGS
     ]
   },
   "mcpServers": {
-    "claude-quarantine": {
+    "claude-guard": {
       "command": "node",
-      "args": ["~/.claude/mcp/claude-quarantine/dist/index.js"],
+      "args": ["~/.claude/mcp/claude-guard/dist/index.js"],
       "env": {
         "GUARD_CONFIG": "~/.claude/hooks/injection-guard.conf",
         "GUARD_PATTERNS": "~/.claude/hooks/injection-patterns.conf"
@@ -218,13 +218,13 @@ fi
 
 # --- Write version marker ---
 if [[ -f "$REPO_DIR/VERSION" ]]; then
-    cp "$REPO_DIR/VERSION" "$CLAUDE_DIR/.quarantine-version"
+    cp "$REPO_DIR/VERSION" "$CLAUDE_DIR/.guard-version"
 fi
 
 echo ""
 VERSION_STR=""
-if [[ -f "$CLAUDE_DIR/.quarantine-version" ]]; then
-    VERSION_STR=$(cat "$CLAUDE_DIR/.quarantine-version" | tr -d '[:space:]')
+if [[ -f "$CLAUDE_DIR/.guard-version" ]]; then
+    VERSION_STR=$(cat "$CLAUDE_DIR/.guard-version" | tr -d '[:space:]')
 fi
 echo "Installation complete! ${VERSION_STR:+(v$VERSION_STR)}"
 echo ""

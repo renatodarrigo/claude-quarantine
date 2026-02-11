@@ -7,6 +7,7 @@ SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 HOOK="$HOME/.claude/hooks/injection-guard.sh"
 
 export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export ENABLE_RATE_LIMIT=false
 
 PASSED=0
 FAILED=0
@@ -19,6 +20,7 @@ fail() { ((FAILED++)); ((TOTAL++)); printf '  \033[31mFAIL\033[0m %s — %s\n' "
 CONF_TMP="$(mktemp)"
 THREATS_TMP="$(mktemp)"
 LOG_TMP="/tmp/cq-confirmed-test-$$.log"
+export LOG_FILE="$LOG_TMP"
 
 cleanup() {
     rm -f "$CONF_TMP" "$THREATS_TMP" "$LOG_TMP"
@@ -27,6 +29,7 @@ trap cleanup EXIT
 
 cat > "$CONF_TMP" <<EOF
 ENABLE_LAYER1=true
+ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=$LOG_TMP
 LOG_THRESHOLD=LOW

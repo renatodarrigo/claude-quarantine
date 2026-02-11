@@ -1,8 +1,8 @@
 <p align="center">
-  <img src="logo.svg" width="160" height="160" alt="claude-quarantine logo">
+  <img src="logo.svg" width="160" height="160" alt="claude-guard logo">
 </p>
 
-<h1 align="center">claude-quarantine</h1>
+<h1 align="center">claude-guard</h1>
 
 <p align="center">
   Prompt injection security guard for <a href="https://claude.ai/claude-code">Claude Code</a><br>
@@ -95,14 +95,14 @@ claude "user prompt here"
 **One-liner install:**
 
 ```bash
-curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/renatodarrigo/claude-guard/main/install.sh | bash
 ```
 
 **Or clone and install manually:**
 
 ```bash
-git clone https://github.com/renatodarrigo/claude-quarantine.git
-cd claude-quarantine
+git clone https://github.com/renatodarrigo/claude-guard.git
+cd claude-guard
 ./install.sh                   # User-level: ~/.claude/ (global, all sessions)
 ./install.sh --project=~/myapp # Project-level: ~/myapp/.claude/
 ```
@@ -132,8 +132,8 @@ chmod +x ~/.claude/hooks/injection-guard.sh
 
 **2. Install MCP server:**
 ```bash
-cp -r mcp/ ~/.claude/mcp/claude-quarantine/
-cd ~/.claude/mcp/claude-quarantine && npm install && npx tsc
+cp -r mcp/ ~/.claude/mcp/claude-guard/
+cd ~/.claude/mcp/claude-guard && npm install && npx tsc
 ```
 
 **3. Add to `~/.claude/settings.json`:**
@@ -154,9 +154,9 @@ cd ~/.claude/mcp/claude-quarantine && npm install && npx tsc
     ]
   },
   "mcpServers": {
-    "claude-quarantine": {
+    "claude-guard": {
       "command": "node",
-      "args": ["~/.claude/mcp/claude-quarantine/dist/index.js"],
+      "args": ["~/.claude/mcp/claude-guard/dist/index.js"],
       "env": {
         "GUARD_CONFIG": "~/.claude/hooks/injection-guard.conf",
         "GUARD_PATTERNS": "~/.claude/hooks/injection-patterns.conf"
@@ -170,7 +170,7 @@ cd ~/.claude/mcp/claude-quarantine && npm install && npx tsc
 ```bash
 mkdir -p ~/.claude/commands
 cp review-threats.md ~/.claude/commands/
-cp update-quarantine.md ~/.claude/commands/
+cp update-guard.md ~/.claude/commands/
 ```
 
 ## Layers
@@ -251,15 +251,15 @@ This creates a feedback loop: the more you review, the smarter the scanner gets.
 
 ## Updating
 
-Run `/update-quarantine` in Claude Code to check for and install updates:
+Run `/update-guard` in Claude Code to check for and install updates:
 
 ```
-> /update-quarantine
+> /update-guard
 
 Installed: v1.1.0
 Latest:    v1.2.0
 
-Update claude-quarantine to v1.2.0?
+Update claude-guard to v1.2.0?
 > Update now
 
 Running installer...
@@ -273,8 +273,8 @@ The updater re-runs the installer, which preserves your config, logs, and confir
 **Manual update alternative:**
 
 ```bash
-git clone https://github.com/renatodarrigo/claude-quarantine.git
-cd claude-quarantine
+git clone https://github.com/renatodarrigo/claude-guard.git
+cd claude-guard
 ./install.sh                   # or ./install.sh --project=~/myapp
 ```
 
@@ -331,7 +331,7 @@ You can load patterns from multiple files by separating them with colons (`:`):
 # In ~/.claude/settings.json (for MCP Layer 3)
 {
   "mcpServers": {
-    "quarantine": {
+    "claude-guard": {
       "env": {
         "GUARD_PATTERNS": "~/.claude/hooks/injection-patterns.conf:~/project/custom-patterns.conf"
       }
