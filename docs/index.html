@@ -245,10 +245,10 @@
   <div class="hero">
     <img src="https://raw.githubusercontent.com/renatodarrigo/claude-quarantine/main/logo.svg" alt="logo">
     <h1>claude-quarantine</h1>
-    <p class="tagline">Prompt injection security guard for Claude Code. 3-layer defense in depth against adversarial content.</p>
+    <p class="tagline">Prompt injection security guard for Claude Code. 4-layer defense in depth with exponential backoff rate limiting.</p>
     <div class="badges">
       <span class="badge-green">70 tests passing</span>
-      <span class="badge-green">3 defense layers</span>
+      <span class="badge-green">4 defense layers</span>
       <span class="badge-blue">MIT license</span>
     </div>
     <p style="margin-top:20px;">
@@ -331,7 +331,7 @@ cd claude-quarantine
       <div class="diagram-col">
         <h3 class="yel">Layers 1+2 &mdash; PostToolUse Hooks</h3>
         <div class="diagram-steps">
-          <div class="diagram-step">WebFetch / Bash / mcp__*</div>
+          <div class="diagram-step">WebFetch / Bash / web_search / mcp__*</div>
           <div class="diagram-arrow">&darr;</div>
           <div class="diagram-step">Tool executes normally</div>
           <div class="diagram-arrow">&darr;</div>
@@ -352,7 +352,7 @@ cd claude-quarantine
       <div class="card">
         <h3>Layer 1 &mdash; Pattern Scanner</h3>
         <p>PostToolUse hook. Fast regex scan (~50&ndash;200ms) of tool results against 28 patterns across 8 threat categories.
-           Fires on every <code>WebFetch</code>, <code>Bash</code>, and <code>mcp__*</code> result.
+           Fires on every <code>WebFetch</code>, <code>Bash</code>, <code>web_search</code>, and <code>mcp__*</code> result.
            Can warn (systemMessage) or block (exit 2) depending on config.</p>
         <span class="tag tag-warning">Warning only &mdash; Claude already has the content</span>
       </div>
@@ -363,13 +363,21 @@ cd claude-quarantine
            skips if already HIGH. Gracefully degrades if CLI is unavailable.</p>
         <span class="tag tag-warning">~2-5s latency &mdash; enable via ENABLE_LAYER2=true</span>
       </div>
-      <div class="card full">
+      <div class="card">
         <h3>Layer 3 &mdash; MCP Sanitization Proxy</h3>
         <p>The <strong>only</strong> layer that prevents Claude from seeing malicious content. Provides
            <code>secure_fetch</code>, <code>secure_gh</code>, and <code>secure_curl</code> tools
            that scan and sanitize content before it ever reaches Claude. This is the real defense &mdash;
            the other layers are a safety net.</p>
         <span class="tag tag-firewall">True firewall &mdash; content is cleaned before Claude sees it</span>
+      </div>
+      <div class="card">
+        <h3>Layer 4 &mdash; Rate Limiting</h3>
+        <p>Tracks sources that repeatedly send malicious input and applies exponential backoff penalties.
+           30s → 45s → 68s → ... up to 12 hour max. Blocks expire automatically and decay over time with clean usage.
+           Protects against automated attacks and repeated probing attempts.</p>
+        <span class="tag tag-firewall">Exponential backoff &mdash; persistent state across restarts</span>
+      </div>
 
         <div class="example">
           <div class="label">HIGH threat &mdash; redacted:</div>
