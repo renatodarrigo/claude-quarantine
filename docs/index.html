@@ -56,8 +56,13 @@
       padding: 24px;
       margin-bottom: 16px;
     }
-    .card h3 { color: var(--olive); font-size: 1rem; margin-bottom: 8px; }
-    .card p { color: var(--muted); font-size: 0.9rem; }
+    .card h3 { color: var(--olive); font-size: 1rem; margin-bottom: 12px; }
+    .card p { color: var(--muted); font-size: 0.9rem; margin-bottom: 16px; }
+    .card p:last-child { margin-bottom: 0; }
+    .card ul { margin-bottom: 16px; padding-left: 24px; }
+    .card ul li { color: var(--muted); font-size: 0.9rem; margin-bottom: 6px; }
+    .card pre { margin-bottom: 16px; }
+    .card pre:last-child { margin-bottom: 0; }
     .card code { background: #111; padding: 2px 6px; border-radius: 4px; font-size: 0.85rem; color: var(--olive); }
     .card .tag {
       display: inline-block;
@@ -175,7 +180,10 @@
       font-size: 0.85rem;
       color: var(--fg);
       line-height: 1.6;
+      margin-top: 12px;
+      margin-bottom: 16px;
     }
+    pre.config:last-child { margin-bottom: 0; }
     pre.config .comment { color: #666; }
     pre.config .key { color: var(--olive); }
     pre.config .val { color: #93c5fd; }
