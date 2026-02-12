@@ -33,24 +33,33 @@ External content flow:
 
   [Layer 0 - PreToolUse]         [Layer 3 - MCP Proxy]          [Layer 1+2 - PostToolUse Hooks]
   ──────────────────────         ────────────────────           ──────────────────────────────
-  WebFetch / Bash URLs           secure_fetch / secure_gh       WebFetch / Bash / web_search / mcp__*
-        │                               │                               │
-        ▼                               ▼                               ▼
+  WebFetch / Bash URLs           secure_fetch / secure_gh       WebFetch / Bash / Read / Grep
+        │                         secure_curl                    web_search / mcp__*
+        ▼                               │                               │
   URL blocklist check            Fetch content                   Tool executes normally
   (~10ms, pure bash)                   │                               │
         │                               ▼                               ▼
-   BLOCK / allow                 Pattern scan + LLM analysis     Pattern scan (Layer 1)
-                                       │                               │
-                                       ▼                               ▼
-                                 SANITIZE before returning       Session buffer check
-                                 redact/annotate/quarantine      (split payload detection)
-                                       │                               │
-                                       ▼                               ▼
-                                 Claude sees clean content       LLM analysis (Layer 2)
+   BLOCK / allow                 Pattern scan + LLM analysis     File scan (Read/Grep):
+                                       │                          trusted → lightweight
+                                       ▼                          sensitive/untrusted → full
+                                 SANITIZE before returning              │
+                                 redact/annotate/quarantine             ▼
+                                       │                         Pattern scan (Layer 1)
+                                       ▼                               │
+                                 Claude sees clean content              ▼
+                                                                 Session buffer check
+                                                                 (split payload detection)
+                                                                       │
+                                                                       ▼
+                                                                 LLM analysis (Layer 2)
                                                                        │
                                                                        ▼
                                                                  systemMessage warning
                                                                  Claude sees raw content + warning
+
+  [Layer 4 - Rate Limiting (cross-cutting)]
+  ──────────────────────────────────────────
+  Repeat offender detected → Exponential backoff → 30s → 45s → 68s → ... → 12h
 ```
 
 **Layer 0** blocks known-malicious URLs *before* tool execution. **Layer 3** sanitizes content *before* Claude sees it. Layers 1+2 are a safety net — PostToolUse hooks can warn but not prevent exposure.
