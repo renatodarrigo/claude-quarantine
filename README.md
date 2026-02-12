@@ -11,7 +11,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/layers-5-green" alt="5 layers">
-  <img src="https://img.shields.io/badge/tests-118%20passing-brightgreen" alt="118 tests passing">
+  <img src="https://img.shields.io/badge/tests-126%20passing-brightgreen" alt="118 tests passing">
   <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="version 2.0.0">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
   <br><br>
@@ -263,6 +263,17 @@ PATTERN_OVERRIDES_FILE=~/.claude/hooks/pattern-overrides.conf
 this is (an )?(urgent|critical) = LOW
 ```
 
+### File Content Scanning
+
+Scans `Read` and `Grep` tool results for prompt injection. Untrusted directories get full pattern scanning; trusted directories get lightweight scanning (`file-patterns.conf` subset). Sensitive files (`.cursorrules`, `CLAUDE.md`, `.env`) always get full scanning regardless of trust.
+
+```bash
+ENABLE_FILE_SCANNING=true
+SENSITIVE_FILES=.cursorrules,CLAUDE.md,.env
+TRUSTED_DIRS=                                  # Comma-separated trusted paths
+FILE_PATTERNS_FILE=~/.claude/hooks/file-patterns.conf
+```
+
 ## Skills
 
 | Skill | Description |
@@ -332,6 +343,12 @@ SCAN_CACHE_TTL=300
 ENABLE_SESSION_BUFFER=true
 SESSION_BUFFER_SIZE=5
 SESSION_BUFFER_TTL=60
+
+# File Content Scanning
+ENABLE_FILE_SCANNING=true
+SENSITIVE_FILES=.cursorrules,CLAUDE.md,.env
+TRUSTED_DIRS=
+FILE_PATTERNS_FILE=~/.claude/hooks/file-patterns.conf
 
 # Layer 2 settings
 LAYER2_MODEL=                   # Empty = system default
@@ -403,7 +420,7 @@ cd ~/.claude/mcp/claude-guard && npm install && npx tsc
     ],
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|web_search|mcp__.*",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep",
         "hooks": [
           {
             "type": "command",
@@ -437,11 +454,11 @@ cp review-threats.md update-guard.md guard-stats.md test-pattern.md guard-config
 ## Testing
 
 ```bash
-./tests/run-all.sh           # Run all 118 tests
+./tests/run-all.sh           # Run all 126 tests
 ./tests/run-all.sh --verbose # With full output
 ```
 
-16 test suites:
+17 test suites:
 - **Layer 1** — Pattern scanner against 10 malicious + 5 benign fixtures
 - **Config** — Block/warn toggle, layer enable/disable, log thresholds
 - **False Positives** — Security blogs, code comments, docs, git logs pass clean
@@ -458,6 +475,7 @@ cp review-threats.md update-guard.md guard-stats.md test-pattern.md guard-config
 - **Session Buffer** — Split payload detection across multiple tool calls
 - **Per-Category Actions** — Silent/warn/block overrides, default fallback
 - **Sanitization Strategies** — Redact, annotate, quarantine, passthrough, audit mode
+- **File Content Scanning** — Trusted/untrusted dirs, sensitive files, whitelist prompts, disable toggle
 
 ## Limitations
 

@@ -4,7 +4,7 @@ set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_DIR="$(cd "$SCRIPT_DIR/.." && pwd)"
-HOOK="${GUARD_HOOK:-$HOME/.claude/hooks/injection-guard.sh}"
+HOOK="$REPO_DIR/hooks/injection-guard.sh"
 
 TEST_TMPDIR=$(mktemp -d)
 trap 'rm -rf "$TEST_TMPDIR"' EXIT
