@@ -1,5 +1,10 @@
 # Changelog
 
+## 2.0.1
+
+- `/guard-config` wizard: layer toggles now use multiSelect checkboxes instead of one-at-a-time editing
+- `/guard-config` wizard: section selection no longer paginated — all sections shown at once
+
 ## 2.0.0
 
 ### New Features

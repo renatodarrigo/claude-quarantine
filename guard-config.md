@@ -104,7 +104,7 @@ Config: {path_to_config_file}
 
 If a layer's toggle is `false`, show `(disabled)` after the section name in the overview.
 
-3. **Ask which section to configure** — use AskUserQuestion to let the user pick a section by number (1-9). Also offer "Done" to exit the wizard.
+3. **Ask which section to configure** — after displaying the overview, tell the user: "Enter a section number (1-9) to configure, or 'done' to exit." Wait for the user's reply. Do NOT use AskUserQuestion here — it limits to 4 options which forces pagination. Instead, present the full list in the overview and let the user type their choice directly.
 
 4. **Handle section selection:**
 
@@ -133,10 +133,12 @@ When user picks a section, list all settings in it by `@name`. Let user pick whi
   - `audit`: Logs and warns only, never blocks, no rate limit penalties
 
 **Section 2: Layer Toggles**
-- When toggling Layer 0 or Layer 1, warn: "This layer runs as a Claude Code hook. Disabling it in the config means the hook will still fire but the layer will skip processing. To fully remove the hook, you would also need to remove the hook entry from settings.json."
-- When toggling Layer 3, warn: "Layer 3 runs as an MCP proxy server. Disabling it in the config means the MCP server entry in settings.json will still be present but the proxy will pass through without scanning."
+- Use AskUserQuestion with `multiSelect: true`. Present each toggle as an option — selected (checked) = enabled, unselected = disabled. Pre-describe which are currently enabled so the user knows the starting state. The user checks the layers they want enabled and unchecks the ones they want disabled.
+- After the user submits, diff against current values to determine which toggles changed. Apply changes and show warnings only for the toggles that actually changed:
+  - When disabling Layer 0 or Layer 1, warn: "This layer runs as a Claude Code hook. Disabling it in the config means the hook will still fire but the layer will skip processing. To fully remove the hook, you would also need to remove the hook entry from settings.json."
+  - When disabling Layer 3, warn: "Layer 3 runs as an MCP proxy server. Disabling it in the config means the MCP server entry in settings.json will still be present but the proxy will pass through without scanning."
+  - When enabling File Content Scanning, check settings.json for `Read|Grep` in the PostToolUse matcher. If missing, warn: "File scanning requires `Read|Grep` in the PostToolUse hook matcher. Run the installer to update settings.json, or add it manually."
 - Read the settings.json file and show the current hook/MCP entries so the user can see the state. Do NOT modify settings.json automatically.
-- When toggling File Content Scanning, check settings.json for `Read|Grep` in the PostToolUse matcher. If missing, warn: "File scanning requires `Read|Grep` in the PostToolUse hook matcher. Run the installer to update settings.json, or add it manually."
 
 **Section 4: Layer 1 — Pattern Scanner**
 - For `HIGH_THREAT_ACTION`, explain the options:

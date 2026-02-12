@@ -12,7 +12,7 @@
 <p align="center">
   <img src="https://img.shields.io/badge/layers-5-green" alt="5 layers">
   <img src="https://img.shields.io/badge/tests-126%20passing-brightgreen" alt="118 tests passing">
-  <img src="https://img.shields.io/badge/version-2.0.0-blue" alt="version 2.0.0">
+  <img src="https://img.shields.io/badge/version-2.0.1-blue" alt="version 2.0.1">
   <img src="https://img.shields.io/badge/license-MIT-blue" alt="MIT license">
   <br><br>
   <a href="https://ko-fi.com/renatodarrigo"><img src="https://ko-fi.com/img/githubbutton_sm.svg" alt="Support on Ko-fi"></a>
