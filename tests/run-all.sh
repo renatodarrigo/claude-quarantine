@@ -19,6 +19,10 @@ SUITES=(
     "test-update.sh:Update Mechanism"
 )
 
+TEST_TMPDIR=$(mktemp -d)
+export LOG_FILE="$TEST_TMPDIR/injection-guard.log"
+trap 'rm -rf "$TEST_TMPDIR"' EXIT
+
 SUITE_PASSED=0
 SUITE_FAILED=0
 SUITE_TOTAL=0

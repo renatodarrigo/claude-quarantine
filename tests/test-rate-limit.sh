@@ -99,6 +99,7 @@ check_decay() {
 # Initialize test environment
 init_test() {
     rm -f "$TEST_STATE_FILE" "${TEST_STATE_FILE}.lock"
+    export LOG_FILE="$TEST_DIR/injection-guard.log"
     export ENABLE_RATE_LIMIT=true
     export RATE_LIMIT_BASE_TIMEOUT=30
     export RATE_LIMIT_MULTIPLIER=1.5
