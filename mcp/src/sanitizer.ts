@@ -1,17 +1,80 @@
 import { scanContent, type ScanResult, type Severity } from "./scanner.js";
+import { writeFileSync, mkdirSync, existsSync } from "fs";
+import { resolve, dirname } from "path";
+
+export type SanitizeStrategy = "redact" | "annotate" | "quarantine" | "passthrough";
 
 export interface SanitizeResult {
   content: string;
   scan: ScanResult;
   modified: boolean;
+  quarantineFile?: string;
+}
+
+// Load config values
+function getGuardMode(): string {
+  return process.env.GUARD_MODE || "enforce";
+}
+
+function getSanitizeStrategy(severity: Severity): SanitizeStrategy {
+  if (severity === "HIGH") {
+    return (process.env.SANITIZE_HIGH || "redact") as SanitizeStrategy;
+  }
+  if (severity === "MED") {
+    return (process.env.SANITIZE_MED || "annotate") as SanitizeStrategy;
+  }
+  return "passthrough";
+}
+
+function getQuarantineDir(): string {
+  const dir = process.env.QUARANTINE_DIR || resolve(process.env.HOME || "~", ".claude/hooks/quarantine");
+  return dir.replace(/^~/, process.env.HOME || "~");
+}
+
+function getCategoryAction(category: string): string | undefined {
+  return process.env[`ACTION_${category}`];
+}
+
+// Determine effective strategy based on category overrides
+function getEffectiveStrategy(scan: ScanResult): SanitizeStrategy {
+  const mode = getGuardMode();
+
+  // In audit mode, annotate (never redact)
+  if (mode === "audit") {
+    if (scan.severity === "HIGH" || scan.severity === "MED") {
+      return "annotate";
+    }
+    return "passthrough";
+  }
+
+  // Check per-category action overrides
+  let mostRestrictive: SanitizeStrategy = "passthrough";
+  let hasCategoryOverride = false;
+
+  for (const cat of scan.categories) {
+    const action = getCategoryAction(cat);
+    if (action) {
+      hasCategoryOverride = true;
+      if (action === "block") {
+        mostRestrictive = "redact"; // block → redact in MCP context
+      } else if (action === "warn" && mostRestrictive !== "redact") {
+        mostRestrictive = "annotate";
+      }
+      // silent → passthrough (no change needed)
+    }
+  }
+
+  if (hasCategoryOverride) {
+    return mostRestrictive;
+  }
+
+  // Fall back to severity-based strategy
+  return getSanitizeStrategy(scan.severity);
 }
 
 /**
  * Sanitize content based on scan results.
- *
- * HIGH threat: Replace suspicious sections with [REDACTED] markers
- * MED threat: Annotate suspicious sections with [SEC-WARNING] markers
- * LOW/NONE: Pass through unchanged
+ * Strategy dispatched per config: redact | annotate | quarantine | passthrough
  */
 export function sanitizeContent(
   content: string,
@@ -23,15 +86,25 @@ export function sanitizeContent(
     return { content, scan, modified: false };
   }
 
-  if (scan.severity === "HIGH") {
-    return sanitizeHigh(content, scan);
-  }
+  const strategy = getEffectiveStrategy(scan);
 
-  // MED
-  return sanitizeMed(content, scan);
+  switch (strategy) {
+    case "redact":
+      return sanitizeRedact(content, scan);
+    case "annotate":
+      return sanitizeAnnotate(content, scan);
+    case "quarantine":
+      return sanitizeQuarantine(content, scan);
+    case "passthrough":
+      return { content, scan, modified: false };
+    default:
+      // Fallback to severity-based default
+      if (scan.severity === "HIGH") return sanitizeRedact(content, scan);
+      return sanitizeAnnotate(content, scan);
+  }
 }
 
-function sanitizeHigh(content: string, scan: ScanResult): SanitizeResult {
+function sanitizeRedact(content: string, scan: ScanResult): SanitizeResult {
   // For HIGH threats, we identify and redact the suspicious portions.
   // Strategy: Split content into lines, redact lines that contain matches.
   const lines = content.split("\n");
@@ -89,19 +162,19 @@ function sanitizeHigh(content: string, scan: ScanResult): SanitizeResult {
   };
 }
 
-function sanitizeMed(content: string, scan: ScanResult): SanitizeResult {
-  // For MED threats, annotate suspicious lines but don't remove them
+function sanitizeAnnotate(content: string, scan: ScanResult): SanitizeResult {
+  // For MED threats (or audit mode), annotate suspicious lines but don't remove them
   const lines = content.split("\n");
   const annotatedLines: string[] = [];
 
-  const medMatches = scan.matches.map((m) => escapeRegex(m.match)).filter(Boolean);
+  const allMatches = scan.matches.map((m) => escapeRegex(m.match)).filter(Boolean);
 
-  if (medMatches.length === 0) {
+  if (allMatches.length === 0) {
     return { content, scan, modified: false };
   }
 
   const matchRegex = new RegExp(
-    medMatches.map((p) => `(?:${p})`).join("|"),
+    allMatches.map((p) => `(?:${p})`).join("|"),
     "i"
   );
 
@@ -132,6 +205,55 @@ function sanitizeMed(content: string, scan: ScanResult): SanitizeResult {
     content: annotatedLines.join("\n"),
     scan,
     modified: true,
+  };
+}
+
+function sanitizeQuarantine(content: string, scan: ScanResult): SanitizeResult {
+  const quarantineDir = getQuarantineDir();
+
+  // Ensure quarantine directory exists
+  try {
+    if (!existsSync(quarantineDir)) {
+      mkdirSync(quarantineDir, { recursive: true });
+    }
+  } catch (err) {
+    console.error(`[guard] Failed to create quarantine dir: ${quarantineDir}`, err);
+    // Fall back to redact
+    return sanitizeRedact(content, scan);
+  }
+
+  // Generate quarantine filename
+  const timestamp = new Date().toISOString().replace(/[:.]/g, "-");
+  const hash = Math.random().toString(36).slice(2, 10);
+  const quarantineFile = resolve(quarantineDir, `${timestamp}-${hash}.txt`);
+
+  // Write quarantined content with metadata header
+  const metadata = [
+    `# Quarantined by claude-guard`,
+    `# Timestamp: ${new Date().toISOString()}`,
+    `# Severity: ${scan.severity}`,
+    `# Categories: ${scan.categories.join(", ")}`,
+    `# Indicators: ${scan.indicators.join(", ")}`,
+    `---`,
+    content,
+  ].join("\n");
+
+  try {
+    writeFileSync(quarantineFile, metadata, "utf-8");
+  } catch (err) {
+    console.error(`[guard] Failed to write quarantine file: ${quarantineFile}`, err);
+    return sanitizeRedact(content, scan);
+  }
+
+  // Return redacted version with quarantine reference
+  const summary = scan.categories.join(", ");
+  const redactedContent = `[QUARANTINED — ${content.length} characters quarantined to ${quarantineFile}. Severity: ${scan.severity}. Categories: ${summary}. Review quarantined file before use.]`;
+
+  return {
+    content: redactedContent,
+    scan,
+    modified: true,
+    quarantineFile,
   };
 }
 

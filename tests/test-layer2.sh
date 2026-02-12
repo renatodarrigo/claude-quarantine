@@ -10,6 +10,8 @@ BENIGN_DIR="$SCRIPT_DIR/fixtures/benign"
 export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
 export ENABLE_RATE_LIMIT=false
 export GUARD_CONFIRMED=/dev/null
+export ENABLE_SCAN_CACHE=false
+export ENABLE_SESSION_BUFFER=false
 
 PASSED=0
 FAILED=0

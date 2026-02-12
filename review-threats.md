@@ -5,13 +5,14 @@ You are reviewing the claude-guard threat detection log. Your job is to present 
 Check project-level first, then fall back to user-level:
 
 - **Log file (JSONL)**: `.claude/hooks/injection-guard.log` (project) or `~/.claude/hooks/injection-guard.log` (user)
+- **Rotated log files**: `.log.1`, `.log.2`, `.log.3` (same directory)
 - **Confirmed threats store**: `.claude/hooks/confirmed-threats.json` (project) or `~/.claude/hooks/confirmed-threats.json` (user)
 
 To determine which to use: check if `.claude/hooks/injection-guard.log` exists. If so, use the `.claude/hooks/` paths. Otherwise, use `~/.claude/hooks/` paths.
 
 ## Procedure
 
-1. **Read** the log file (project-level first, then user-level). Each line is a JSON object with fields: `id`, `timestamp`, `tool`, `severity`, `categories`, `indicators`, `snippet`, `status`. Optionally includes `layer2` object with `executed`, `severity`, `reasoning`, `confidence` fields. Filter for entries where `status` is `"unreviewed"`.
+1. **Read** the log file (project-level first, then user-level). Also read rotated log files (`.log.1`, `.log.2`, `.log.3`) to include older entries. Each line is a JSON object with fields: `id`, `timestamp`, `tool`, `severity`, `categories`, `indicators`, `snippet`, `status`. Optionally includes `layer2` object with `executed`, `severity`, `reasoning`, `confidence` fields. May also include `mode` field (`"audit"` for audit mode entries). Filter for entries where `status` is `"unreviewed"`.
 
 2. **Count** unreviewed entries. If there are none, tell the user "No unreviewed threats in the log." and stop.
 
@@ -23,6 +24,7 @@ To determine which to use: check if `.claude/hooks/injection-guard.log` exists. 
   Indicators: {indicators joined}
   Snippet: {snippet, truncated to ~200 chars}
   Layer 2: {if layer2.executed: "severity={layer2.severity} confidence={layer2.confidence} — {layer2.reasoning}"}
+  Mode: {if mode exists: show mode, otherwise "enforce"}
 ```
 
 4. **Ask the user** to review the batch using AskUserQuestion. For each entry in the current batch, ask whether it is a **real threat** or a **false positive**. Use multiSelect so the user can select which entries are real threats (unselected = false positive).
@@ -58,3 +60,4 @@ To determine which to use: check if `.claude/hooks/injection-guard.log` exists. 
 - When rewriting the log file, preserve ALL entries (confirmed, dismissed, and any remaining unreviewed). Only change the `status` field.
 - The confirmed-threats.json file is an array at the top level. Read-modify-write it atomically.
 - If the log file doesn't exist in either location, tell the user no detections have been recorded yet.
+- When reading rotated logs, combine all unreviewed entries from all files but only modify the file that contains each entry.

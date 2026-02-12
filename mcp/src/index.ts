@@ -6,7 +6,7 @@ import { secureShell } from "./tools/secure-shell.js";
 
 const server = new McpServer({
   name: "claude-guard",
-  version: "1.0.0",
+  version: "2.0.0",
 });
 
 // --- secure_fetch tool ---
@@ -39,6 +39,9 @@ server.tool(
         lines.push(
           `Security: Content was sanitized (${result.scanSummary.severity} threat detected in categories: ${result.scanSummary.categories.join(", ")})`
         );
+      }
+      if (result.quarantineFile) {
+        lines.push(`Quarantine: Original content saved to ${result.quarantineFile}`);
       }
       lines.push("", result.content);
 
@@ -89,6 +92,10 @@ server.tool(
       );
       lines.push("");
     }
+    if (result.quarantineFile) {
+      lines.push(`Quarantine: Original content saved to ${result.quarantineFile}`);
+      lines.push("");
+    }
 
     if (result.stdout) lines.push(result.stdout);
     if (result.stderr && result.exitCode !== 0) {
@@ -130,6 +137,10 @@ server.tool(
       lines.push(
         `Security: Output was sanitized (${result.scanSummary.severity} threat detected in categories: ${result.scanSummary.categories.join(", ")})`
       );
+      lines.push("");
+    }
+    if (result.quarantineFile) {
+      lines.push(`Quarantine: Original content saved to ${result.quarantineFile}`);
       lines.push("");
     }
 

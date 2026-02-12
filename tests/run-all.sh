@@ -17,10 +17,22 @@ SUITES=(
     "test-layer2.sh:Layer 2 — LLM Analysis"
     "test-project-install.sh:Project-Level Installation"
     "test-update.sh:Update Mechanism"
+    "test-audit-mode.sh:Audit Mode"
+    "test-log-rotation.sh:Log Rotation"
+    "test-allowlist.sh:URL Allowlisting"
+    "test-layer0.sh:Layer 0 — URL Blocklist"
+    "test-scan-cache.sh:Scan Cache"
+    "test-session-buffer.sh:Session Buffer"
+    "test-category-actions.sh:Per-Category Actions"
+    "test-sanitization.sh:Sanitization Strategies"
 )
 
 TEST_TMPDIR=$(mktemp -d)
 export LOG_FILE="$TEST_TMPDIR/injection-guard.log"
+export SESSION_BUFFER_FILE="$TEST_TMPDIR/session-buffer.json"
+export SCAN_CACHE_FILE="$TEST_TMPDIR/scan-cache.json"
+# Disable session buffer by default; tests that need it enable explicitly
+export ENABLE_SESSION_BUFFER=false
 trap 'rm -rf "$TEST_TMPDIR"' EXIT
 
 SUITE_PASSED=0
@@ -46,6 +58,10 @@ for entry in "${SUITES[@]}"; do
         FAILED_SUITES+=("$label")
         continue
     fi
+
+    # Reset shared state between suites to prevent cross-contamination
+    rm -f "$TEST_TMPDIR/session-buffer.json" "$TEST_TMPDIR/scan-cache.json" \
+          "$TEST_TMPDIR/injection-guard.log"
 
     echo "━━━ $label ━━━"
     if $VERBOSE; then

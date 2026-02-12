@@ -1,4 +1,5 @@
 import { sanitizeContent } from "../sanitizer.js";
+import { isAllowlisted } from "../scanner.js";
 
 export interface FetchParams {
   url: string;
@@ -16,6 +17,7 @@ export interface FetchResult {
     severity: string;
     categories: string[];
   };
+  quarantineFile?: string;
 }
 
 export async function secureFetch(params: FetchParams): Promise<FetchResult> {
@@ -31,7 +33,17 @@ export async function secureFetch(params: FetchParams): Promise<FetchResult> {
   const contentType = response.headers.get("content-type") || "text/plain";
   const rawContent = await response.text();
 
-  const { content, scan, modified } = sanitizeContent(rawContent);
+  // Check allowlist — skip sanitization if URL is allowlisted
+  if (isAllowlisted(url)) {
+    return {
+      status: response.status,
+      content: rawContent,
+      contentType,
+      sanitized: false,
+    };
+  }
+
+  const { content, scan, modified, quarantineFile } = sanitizeContent(rawContent);
 
   return {
     status: response.status,
@@ -46,5 +58,6 @@ export async function secureFetch(params: FetchParams): Promise<FetchResult> {
           },
         }
       : {}),
+    ...(quarantineFile ? { quarantineFile } : {}),
   };
 }

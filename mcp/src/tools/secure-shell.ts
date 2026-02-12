@@ -19,6 +19,7 @@ export interface ShellResult {
     severity: string;
     categories: string[];
   };
+  quarantineFile?: string;
 }
 
 /**
@@ -64,7 +65,7 @@ export async function secureShell(params: ShellParams): Promise<ShellResult> {
   }
 
   // Sanitize stdout (where content payloads live)
-  const { content: sanitizedStdout, scan, modified } = sanitizeContent(stdout);
+  const { content: sanitizedStdout, scan, modified, quarantineFile } = sanitizeContent(stdout);
 
   return {
     stdout: sanitizedStdout,
@@ -79,5 +80,6 @@ export async function secureShell(params: ShellParams): Promise<ShellResult> {
           },
         }
       : {}),
+    ...(quarantineFile ? { quarantineFile } : {}),
   };
 }

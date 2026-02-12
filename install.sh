@@ -88,39 +88,66 @@ else
 fi
 echo ""
 
-# --- Install review skill ---
+# --- Install skills ---
 COMMANDS_DIR="$CLAUDE_DIR/commands"
-echo "Installing /review-threats skill to $COMMANDS_DIR..."
+echo "Installing skills to $COMMANDS_DIR..."
 mkdir -p "$COMMANDS_DIR"
 cp "$REPO_DIR/review-threats.md" "$COMMANDS_DIR/"
 cp "$REPO_DIR/update-guard.md" "$COMMANDS_DIR/"
+cp "$REPO_DIR/guard-stats.md" "$COMMANDS_DIR/"
+cp "$REPO_DIR/test-pattern.md" "$COMMANDS_DIR/"
+cp "$REPO_DIR/guard-config.md" "$COMMANDS_DIR/"
 
 # --- Install hooks ---
 echo "Installing hooks to $HOOKS_DIR..."
 mkdir -p "$HOOKS_DIR"
 cp "$REPO_DIR/hooks/injection-guard.sh" "$HOOKS_DIR/"
 cp "$REPO_DIR/hooks/injection-patterns.conf" "$HOOKS_DIR/"
+cp "$REPO_DIR/hooks/pretooluse-guard.sh" "$HOOKS_DIR/"
+cp "$REPO_DIR/hooks/guard-lib-rotation.sh" "$HOOKS_DIR/"
+cp "$REPO_DIR/hooks/guard-lib-allowlist.sh" "$HOOKS_DIR/"
+cp "$REPO_DIR/hooks/guard-lib-cache.sh" "$HOOKS_DIR/"
 chmod +x "$HOOKS_DIR/injection-guard.sh"
+chmod +x "$HOOKS_DIR/pretooluse-guard.sh"
 
-# Install config only if it doesn't exist (don't overwrite user config)
-if [[ ! -f "$HOOKS_DIR/injection-guard.conf" ]]; then
-    cp "$REPO_DIR/hooks/injection-guard.conf" "$HOOKS_DIR/"
-    # For project installs, update LOG_FILE to use project-relative paths
-    if [[ "$INSTALL_MODE" == "project" ]]; then
-        sed -i.bak 's|LOG_FILE=~/.claude/hooks/|LOG_FILE=.claude/hooks/|' "$HOOKS_DIR/injection-guard.conf"
-        rm -f "$HOOKS_DIR/injection-guard.conf.bak"
+# Install config-only files only if they don't exist (don't overwrite user config)
+for conf_file in injection-guard.conf allowlist.conf blocklist.conf pattern-overrides.conf; do
+    if [[ ! -f "$HOOKS_DIR/$conf_file" ]]; then
+        cp "$REPO_DIR/hooks/$conf_file" "$HOOKS_DIR/"
+        # For project installs, update paths to use project-relative
+        if [[ "$INSTALL_MODE" == "project" ]]; then
+            sed -i.bak 's|~/.claude/hooks/|.claude/hooks/|g' "$HOOKS_DIR/$conf_file"
+            rm -f "$HOOKS_DIR/$conf_file.bak"
+        fi
+        echo "  Created $conf_file"
+    else
+        echo "  $conf_file already exists (kept existing)"
     fi
-    echo "  Created default config at $HOOKS_DIR/injection-guard.conf"
-else
-    echo "  Config already exists at $HOOKS_DIR/injection-guard.conf (kept existing)"
-fi
+done
+
+# Install admin tools
+for admin_script in reset-rate-limit.sh show-rate-limit.sh; do
+    if [[ -f "$REPO_DIR/hooks/$admin_script" ]]; then
+        cp "$REPO_DIR/hooks/$admin_script" "$HOOKS_DIR/"
+        chmod +x "$HOOKS_DIR/$admin_script"
+    fi
+done
+
+# Create quarantine directory
+mkdir -p "$HOOKS_DIR/quarantine"
 
 # --- Create .gitignore for project installs ---
 if [[ "$INSTALL_MODE" == "project" ]]; then
     cat > "$CLAUDE_DIR/.gitignore" <<'GITIGNORE'
 settings.local.json
 hooks/injection-guard.log
+hooks/injection-guard.log.*
 hooks/confirmed-threats.json
+hooks/rate-limit-state.json
+hooks/scan-cache.json
+hooks/session-buffer.json
+hooks/quarantine/
+hooks/blocklist-remote-cache.txt
 GITIGNORE
     echo "  Created $CLAUDE_DIR/.gitignore"
 fi
@@ -158,6 +185,18 @@ else
         cat > "$SETTINGS_FILE" <<'SETTINGS'
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": ".claude/hooks/pretooluse-guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "WebFetch|Bash|web_search|mcp__.*",
@@ -177,7 +216,8 @@ else
       "args": [".claude/mcp/claude-guard/dist/index.js"],
       "env": {
         "GUARD_CONFIG": ".claude/hooks/injection-guard.conf",
-        "GUARD_PATTERNS": ".claude/hooks/injection-patterns.conf"
+        "GUARD_PATTERNS": ".claude/hooks/injection-patterns.conf",
+        "GUARD_ALLOWLIST": ".claude/hooks/allowlist.conf"
       }
     }
   }
@@ -187,6 +227,18 @@ SETTINGS
         cat > "$SETTINGS_FILE" <<'SETTINGS'
 {
   "hooks": {
+    "PreToolUse": [
+      {
+        "matcher": "WebFetch|Bash",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "~/.claude/hooks/pretooluse-guard.sh",
+            "timeout": 10
+          }
+        ]
+      }
+    ],
     "PostToolUse": [
       {
         "matcher": "WebFetch|Bash|web_search|mcp__.*",
@@ -206,14 +258,15 @@ SETTINGS
       "args": ["~/.claude/mcp/claude-guard/dist/index.js"],
       "env": {
         "GUARD_CONFIG": "~/.claude/hooks/injection-guard.conf",
-        "GUARD_PATTERNS": "~/.claude/hooks/injection-patterns.conf"
+        "GUARD_PATTERNS": "~/.claude/hooks/injection-patterns.conf",
+        "GUARD_ALLOWLIST": "~/.claude/hooks/allowlist.conf"
       }
     }
   }
 }
 SETTINGS
     fi
-    echo "  Created settings.json with hook and MCP server config"
+    echo "  Created settings.json with PreToolUse + PostToolUse hooks and MCP server config"
 fi
 
 # --- Write version marker ---
@@ -228,12 +281,17 @@ if [[ -f "$CLAUDE_DIR/.guard-version" ]]; then
 fi
 echo "Installation complete! ${VERSION_STR:+(v$VERSION_STR)}"
 echo ""
+echo "Layer 0 (URL Blocklist):   Active on WebFetch and Bash (PreToolUse)"
 echo "Layer 1 (Pattern Scanner): Active on all WebFetch, Bash, web_search, and MCP tool results"
 echo "Layer 3 (MCP Proxy):       Available as secure_fetch, secure_gh, secure_curl tools"
 echo ""
 echo "Configuration: $HOOKS_DIR/injection-guard.conf"
 echo "Patterns:      $HOOKS_DIR/injection-patterns.conf"
+echo "Allowlist:     $HOOKS_DIR/allowlist.conf"
+echo "Blocklist:     $HOOKS_DIR/blocklist.conf"
 echo "Logs:          $HOOKS_DIR/injection-guard.log"
+echo ""
+echo "Skills: /review-threats, /update-guard, /guard-stats, /test-pattern, /guard-config"
 echo ""
 
 if [[ "$INSTALL_MODE" == "project" ]]; then
