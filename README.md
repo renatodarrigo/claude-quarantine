@@ -304,6 +304,98 @@ Which entries are real threats? (unselected = false positive)
 - **Confirmed threats** are saved to `confirmed-threats.json` and auto-escalated to HIGH in future scans
 - **False positives** are dismissed from the log
 
+## Keeping Up to Date
+
+Run `/update-guard` in Claude Code to check for updates and install them. Your config, logs, and confirmed threats are preserved.
+
+```
+> /update-guard
+
+Installed: v1.2.0
+Latest:    v2.0.0
+
+Update claude-guard to v2.0.0?
+> Update now
+
+Running installer...
+Installation complete! (v2.0.0)
+
+Updated: hooks, patterns, MCP server, skills
+Preserved: injection-guard.conf, injection-guard.log, confirmed-threats.json
+```
+
+## Guard Stats
+
+Run `/guard-stats` to generate a security dashboard from your detection log — threat counts by severity, top triggered patterns, false positive rates, rate limit status, and actionable recommendations.
+
+```
+> /guard-stats
+
+===== Claude Guard Security Dashboard =====
+Mode: enforce | Log: ~/.claude/hooks/injection-guard.log
+
+--- Scan Summary ---
+Total scans:       42
+  Last 24h:        8
+  Last 7d:         27
+  Last 30d:        42
+
+--- Severity Breakdown ---
+  HIGH:  6   (14.3%)
+  MED:   11  (26.2%)
+  LOW:   25  (59.5%)
+
+--- Top Categories ---
+  1. instruction_override   (14)
+  2. tool_manipulation      (9)
+  3. social_engineering      (7)
+  4. system_impersonation    (6)
+  5. credential_exfil        (4)
+
+--- Review Status ---
+  Unreviewed:  12
+  Confirmed:   18
+  Dismissed:   12
+  False positive rate: 40.0%
+
+Run /review-threats to triage 12 unreviewed detections.
+High false positive rate (40.0%). Consider tuning patterns with /test-pattern.
+```
+
+## Test Pattern
+
+Run `/test-pattern` to interactively craft and validate new detection patterns — test against payload and benign fixtures, check for false positives, and add to your pattern file when ready.
+
+```
+> /test-pattern
+
+Regex pattern:  do (not|never) follow.*(rules|guidelines|instructions)
+Category:       instruction_override
+Severity:       HIGH
+
+===== Pattern Test Results =====
+
+Pattern:  instruction_override:HIGH:do (not|never) follow.*(rules|guidelines|instructions)
+
+--- Payload Fixtures (True Positives) ---
+Matched: 3/12 payloads
+  payload-override-01.json
+  payload-override-04.json
+  payload-social-02.json
+
+--- Benign Fixtures (False Positives) ---
+Matched: 0/8 benign  CLEAN
+
+--- Assessment ---
+Pattern looks good. Ready to add.
+
+Add this pattern to ~/.claude/hooks/injection-patterns.conf?
+> Add
+
+Added: # Added via /test-pattern on 2026-02-12
+Added: instruction_override:HIGH:do (not|never) follow.*(rules|guidelines|instructions)
+```
+
 ## Configuration
 
 Edit `~/.claude/hooks/injection-guard.conf`:
