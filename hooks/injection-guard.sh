@@ -77,6 +77,11 @@ apply_defaults() {
     RATE_LIMIT_SEVERITY_MED="${RATE_LIMIT_SEVERITY_MED:-true}"
     RATE_LIMIT_SEVERITY_LOW="${RATE_LIMIT_SEVERITY_LOW:-false}"
     RATE_LIMIT_PERSIST="${RATE_LIMIT_PERSIST:-true}"
+    ENABLE_FILE_SCANNING="${ENABLE_FILE_SCANNING:-true}"
+    FILE_PATTERNS_FILE="${FILE_PATTERNS_FILE:-$SCRIPT_DIR/file-patterns.conf}"
+    SENSITIVE_FILES="${SENSITIVE_FILES:-.cursorrules,CLAUDE.md,.env}"
+    TRUSTED_DIRS="${TRUSTED_DIRS:-}"
+    PROMPTED_DIRS_FILE="${PROMPTED_DIRS_FILE:-$HOME/.claude/hooks/prompted-dirs.json}"
 }
 
 # --- Load config ---
@@ -125,6 +130,11 @@ load_config() {
                 RATE_LIMIT_SEVERITY_MED)    RATE_LIMIT_SEVERITY_MED="${RATE_LIMIT_SEVERITY_MED:-$value}" ;;
                 RATE_LIMIT_SEVERITY_LOW)    RATE_LIMIT_SEVERITY_LOW="${RATE_LIMIT_SEVERITY_LOW:-$value}" ;;
                 RATE_LIMIT_PERSIST)         RATE_LIMIT_PERSIST="${RATE_LIMIT_PERSIST:-$value}" ;;
+                ENABLE_FILE_SCANNING)       ENABLE_FILE_SCANNING="${ENABLE_FILE_SCANNING:-$value}" ;;
+                FILE_PATTERNS_FILE)         FILE_PATTERNS_FILE="${FILE_PATTERNS_FILE:-${value/#\~/$HOME}}" ;;
+                SENSITIVE_FILES)            SENSITIVE_FILES="${SENSITIVE_FILES:-$value}" ;;
+                TRUSTED_DIRS)               TRUSTED_DIRS="${TRUSTED_DIRS:-$value}" ;;
+                PROMPTED_DIRS_FILE)         PROMPTED_DIRS_FILE="${PROMPTED_DIRS_FILE:-${value/#\~/$HOME}}" ;;
                 ACTION_*)
                     # Per-category action overrides: ACTION_<category>=block|warn|silent
                     local cat_name="${key#ACTION_}"
@@ -655,6 +665,13 @@ data = json.load(sys.stdin)
 tool_name = data.get('tool_name', data.get('hook_event_name', 'unknown'))
 print(tool_name)
 
+tool_input = data.get('tool_input', {})
+file_path = ''
+if isinstance(tool_input, dict):
+    file_path = tool_input.get('file_path', '') or tool_input.get('path', '')
+print(file_path)
+print('__GUARD_CONTENT__')
+
 result = data.get('tool_result', data.get('result', ''))
 if isinstance(result, dict):
     content = result.get('content', '')
@@ -1027,6 +1044,111 @@ print(confidence)
     return 0
 }
 
+# --- File scanning helpers ---
+
+# Check if a file basename is in the sensitive files list
+is_sensitive_file() {
+    local fpath="$1"
+    local basename="${fpath##*/}"
+
+    # Always sensitive: anything under .claude/ directory
+    case "$fpath" in
+        */.claude/*) return 0 ;;
+    esac
+
+    # Check against SENSITIVE_FILES csv
+    IFS=',' read -ra sens_list <<< "$SENSITIVE_FILES"
+    for s in "${sens_list[@]}"; do
+        s="${s// /}"
+        [[ "$basename" == "$s" ]] && return 0
+    done
+    return 1
+}
+
+# Check if a path is under a trusted directory
+is_trusted_path() {
+    local fpath="$1"
+
+    [[ -z "$TRUSTED_DIRS" ]] && return 1
+
+    # Resolve to absolute path
+    local resolved
+    if command -v realpath &>/dev/null; then
+        resolved=$(realpath -m "$fpath" 2>/dev/null) || resolved="$fpath"
+    else
+        resolved="$fpath"
+    fi
+
+    IFS=',' read -ra trust_list <<< "$TRUSTED_DIRS"
+    for tdir in "${trust_list[@]}"; do
+        tdir="${tdir// /}"
+        tdir="${tdir/#\~/$HOME}"
+        # Resolve trusted dir too
+        local resolved_tdir
+        if command -v realpath &>/dev/null; then
+            resolved_tdir=$(realpath -m "$tdir" 2>/dev/null) || resolved_tdir="$tdir"
+        else
+            resolved_tdir="$tdir"
+        fi
+        # Prefix match (ensure trailing slash for exact boundary)
+        if [[ "$resolved" == "$resolved_tdir"/* || "$resolved" == "$resolved_tdir" ]]; then
+            return 0
+        fi
+    done
+    return 1
+}
+
+# Check if a directory has already been prompted about
+check_prompted_dir() {
+    local dir_path="$1"
+    local state_file="${PROMPTED_DIRS_FILE:-$HOME/.claude/hooks/prompted-dirs.json}"
+
+    [[ ! -f "$state_file" ]] && return 1
+
+    python3 -c "
+import json, sys
+try:
+    with open('$state_file') as f:
+        data = json.load(f)
+    dirs = data.get('prompted_dirs', [])
+    if '$dir_path' in dirs:
+        sys.exit(0)
+    sys.exit(1)
+except (FileNotFoundError, json.JSONDecodeError):
+    sys.exit(1)
+" 2>/dev/null
+}
+
+# Record a directory as having been prompted about
+record_prompted_dir() {
+    local dir_path="$1"
+    local state_file="${PROMPTED_DIRS_FILE:-$HOME/.claude/hooks/prompted-dirs.json}"
+    local state_dir
+    state_dir="$(dirname "$state_file")"
+    [[ -d "$state_dir" ]] || mkdir -p "$state_dir"
+
+    python3 -c "
+import json, sys, os, tempfile
+
+state_file = '$state_file'
+dir_path = '$dir_path'
+
+try:
+    with open(state_file) as f:
+        data = json.load(f)
+except (FileNotFoundError, json.JSONDecodeError):
+    data = {}
+
+dirs = data.setdefault('prompted_dirs', [])
+if dir_path not in dirs:
+    dirs.append(dir_path)
+    with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=os.path.dirname(state_file)) as tmp:
+        json.dump(data, tmp, indent=2)
+        tmp_name = tmp.name
+    os.rename(tmp_name, state_file)
+" 2>/dev/null
+}
+
 # --- Main ---
 main() {
     load_config
@@ -1075,23 +1197,48 @@ main() {
         exit 0
     fi
 
-    TOOL_NAME=$(head -1 <<< "$fields")
+    TOOL_NAME=$(sed -n '1p' <<< "$fields")
+    local file_path
+    file_path=$(sed -n '2p' <<< "$fields") || true
     local content
-    content=$(tail -n +2 <<< "$fields")
+    content=$(sed '1,3d' <<< "$fields")  # skip tool_name, file_path, sentinel
 
     if [[ -z "$content" ]]; then
         echo '{}'
         exit 0
     fi
 
+    # File scanning decision for Read/Grep tools
+    local scan_mode="full"
+    local prompt_whitelist=false
+    if [[ "$TOOL_NAME" == "Read" || "$TOOL_NAME" == "Grep" ]]; then
+        if [[ "${ENABLE_FILE_SCANNING:-true}" != "true" ]]; then
+            echo '{}'; exit 0
+        fi
+        if is_sensitive_file "$file_path"; then
+            scan_mode="full"
+        elif is_trusted_path "$file_path"; then
+            scan_mode="lightweight"
+        else
+            scan_mode="full"
+            local parent_dir
+            parent_dir=$(dirname "$file_path")
+            if [[ -n "$parent_dir" ]] && ! check_prompted_dir "$parent_dir"; then
+                prompt_whitelist=true
+            fi
+        fi
+    fi
+
     # Allowlist check: extract URL from input and skip scanning if allowlisted
-    if type load_allowlist &>/dev/null; then
-        load_allowlist
-        local url_from_input
-        url_from_input=$(extract_url_from_input "$input") || true
-        if [[ -n "$url_from_input" ]] && is_allowlisted "$url_from_input"; then
-            echo '{}'
-            exit 0
+    if [[ "$TOOL_NAME" != "Read" && "$TOOL_NAME" != "Grep" ]]; then
+        if type load_allowlist &>/dev/null; then
+            load_allowlist
+            local url_from_input
+            url_from_input=$(extract_url_from_input "$input") || true
+            if [[ -n "$url_from_input" ]] && is_allowlisted "$url_from_input"; then
+                echo '{}'
+                exit 0
+            fi
         fi
     fi
 
@@ -1134,8 +1281,15 @@ main() {
         build_output_and_exit "$SCAN_SEVERITY" "$SCAN_CATEGORIES" "$SCAN_INDICATORS"
     fi
 
-    # Pattern scan
-    scan_content "$content"
+    # Pattern scan (swap to lightweight patterns for trusted dirs)
+    if [[ "$scan_mode" == "lightweight" ]]; then
+        local saved_patterns="$PATTERNS_FILE"
+        PATTERNS_FILE="$FILE_PATTERNS_FILE"
+        scan_content "$content"
+        PATTERNS_FILE="$saved_patterns"
+    else
+        scan_content "$content"
+    fi
 
     # Session buffer: check for split payloads
     if type update_session_buffer &>/dev/null && [[ "${ENABLE_SESSION_BUFFER:-true}" == "true" ]]; then
@@ -1216,6 +1370,23 @@ main() {
 
         log_event "$SCAN_SEVERITY" "$TOOL_NAME" "$SCAN_CATEGORIES" "$SCAN_INDICATORS" "$CONTENT_SNIPPET" "" \
             "$LLM_EXECUTED" "$LLM_SEVERITY" "$LLM_REASONING" "$LLM_CONFIDENCE"
+    fi
+
+    # Whitelist prompt handling for Read/Grep from unknown dirs
+    if [[ "$prompt_whitelist" == "true" ]]; then
+        local wl_parent_dir
+        wl_parent_dir=$(dirname "$file_path")
+        record_prompted_dir "$wl_parent_dir"
+        if [[ "$SCAN_SEVERITY" == "NONE" ]]; then
+            local wl_msg="File read from unrecognized directory: $wl_parent_dir. "
+            wl_msg+="Ask the user if they want to add this directory to the trusted whitelist "
+            wl_msg+="(TRUSTED_DIRS in ~/.claude/hooks/injection-guard.conf). "
+            wl_msg+="Trusted directories get faster, lightweight scanning. "
+            wl_msg+="Untrusted directories get full security scanning."
+            printf '{"systemMessage":"%s"}\n' "$(json_escape "$wl_msg")"
+            exit 0
+        fi
+        # If threats found, fall through to normal build_output_and_exit
     fi
 
     build_output_and_exit "$SCAN_SEVERITY" "$SCAN_CATEGORIES" "$SCAN_INDICATORS"

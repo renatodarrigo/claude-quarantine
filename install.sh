@@ -107,6 +107,7 @@ cp "$REPO_DIR/hooks/pretooluse-guard.sh" "$HOOKS_DIR/"
 cp "$REPO_DIR/hooks/guard-lib-rotation.sh" "$HOOKS_DIR/"
 cp "$REPO_DIR/hooks/guard-lib-allowlist.sh" "$HOOKS_DIR/"
 cp "$REPO_DIR/hooks/guard-lib-cache.sh" "$HOOKS_DIR/"
+cp "$REPO_DIR/hooks/file-patterns.conf" "$HOOKS_DIR/"
 chmod +x "$HOOKS_DIR/injection-guard.sh"
 chmod +x "$HOOKS_DIR/pretooluse-guard.sh"
 
@@ -199,7 +200,7 @@ else
     ],
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|web_search|mcp__.*",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep",
         "hooks": [
           {
             "type": "command",
@@ -241,7 +242,7 @@ SETTINGS
     ],
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|web_search|mcp__.*",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep",
         "hooks": [
           {
             "type": "command",

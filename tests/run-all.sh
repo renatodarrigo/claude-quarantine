@@ -25,6 +25,7 @@ SUITES=(
     "test-session-buffer.sh:Session Buffer"
     "test-category-actions.sh:Per-Category Actions"
     "test-sanitization.sh:Sanitization Strategies"
+    "test-file-scanning.sh:File Content Scanning"
 )
 
 TEST_TMPDIR=$(mktemp -d)
