@@ -172,10 +172,23 @@ SETTINGS_FILE="$CLAUDE_DIR/settings.json"
 echo ""
 echo "Configuring $SETTINGS_FILE..."
 
+EXPECTED_POST_MATCHER="WebFetch|Bash|web_search|mcp__.*|Read|Grep|Glob"
+
 if [[ -f "$SETTINGS_FILE" ]]; then
     # Check if already configured
     if grep -q "injection-guard" "$SETTINGS_FILE" 2>/dev/null; then
-        echo "  Hook already configured in settings.json (skipping)"
+        # Update PostToolUse matcher if it doesn't match expected value
+        # Extract PostToolUse matcher — find the matcher line containing web_search or mcp__ (unique to PostToolUse)
+        CURRENT_POST_MATCHER=$(grep '"matcher"' "$SETTINGS_FILE" | grep -E 'web_search|mcp__' | sed 's/.*"matcher":[[:space:]]*"\(.*\)".*/\1/' | head -1 || true)
+        if [[ -n "$CURRENT_POST_MATCHER" && "$CURRENT_POST_MATCHER" != "$EXPECTED_POST_MATCHER" ]]; then
+            # Escape regex metacharacters in the current matcher for sed
+            ESCAPED_CURRENT=$(printf '%s' "$CURRENT_POST_MATCHER" | sed 's/[.[\*^$()+?{]/\\&/g')
+            sed -i.bak "s|\"matcher\": \"$ESCAPED_CURRENT\"|\"matcher\": \"$EXPECTED_POST_MATCHER\"|" "$SETTINGS_FILE"
+            rm -f "$SETTINGS_FILE.bak"
+            echo "  Updated PostToolUse matcher: $CURRENT_POST_MATCHER → $EXPECTED_POST_MATCHER"
+        else
+            echo "  Hook already configured in settings.json (up to date)"
+        fi
     else
         echo "  WARNING: settings.json exists but doesn't contain claude-guard config."
         echo "  You need to manually add the hook and MCP server configuration."
@@ -200,7 +213,7 @@ else
     ],
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -242,7 +255,7 @@ SETTINGS
     ],
     "PostToolUse": [
       {
-        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep",
+        "matcher": "WebFetch|Bash|web_search|mcp__.*|Read|Grep|Glob",
         "hooks": [
           {
             "type": "command",
@@ -283,7 +296,7 @@ fi
 echo "Installation complete! ${VERSION_STR:+(v$VERSION_STR)}"
 echo ""
 echo "Layer 0 (URL Blocklist):   Active on WebFetch and Bash (PreToolUse)"
-echo "Layer 1 (Pattern Scanner): Active on all WebFetch, Bash, web_search, and MCP tool results"
+echo "Layer 1 (Pattern Scanner): Active on WebFetch, Bash, web_search, MCP, Read, Grep, and Glob results"
 echo "Layer 3 (MCP Proxy):       Available as secure_fetch, secure_gh, secure_curl tools"
 echo ""
 echo "Configuration: $HOOKS_DIR/injection-guard.conf"
