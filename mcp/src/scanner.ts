@@ -206,7 +206,9 @@ function loadConfirmedThreats(): ConfirmedThreat[] {
   return [];
 }
 
-function checkConfirmedThreats(content: string): string | null {
+function checkConfirmedThreats(
+  content: string
+): { id: string; indicator: string } | null {
   const threats = loadConfirmedThreats();
   const lowerContent = content.toLowerCase();
 
@@ -214,7 +216,7 @@ function checkConfirmedThreats(content: string): string | null {
     for (const indicator of threat.indicators || []) {
       if (indicator.length < 8) continue; // skip short indicators
       if (lowerContent.includes(indicator.toLowerCase())) {
-        return threat.id;
+        return { id: threat.id, indicator };
       }
     }
   }
@@ -362,20 +364,20 @@ export function scanContent(
   if (cached) return cached;
 
   // Check confirmed threats first — auto-escalate to HIGH
-  const confirmedId = checkConfirmedThreats(content);
-  if (confirmedId) {
+  const confirmed = checkConfirmedThreats(content);
+  if (confirmed) {
     const result: ScanResult = {
       severity: "HIGH",
       categories: ["confirmed_threat"],
-      indicators: [`matched confirmed threat ${confirmedId}`],
+      indicators: [`matched confirmed threat ${confirmed.id}`],
       matches: [
         {
           category: "confirmed_threat",
           severity: "HIGH",
-          match: `confirmed threat ${confirmedId}`,
+          match: confirmed.indicator,
         },
       ],
-      confirmedMatch: confirmedId,
+      confirmedMatch: confirmed.id,
     };
     updateScanCache(content, result);
     return result;

@@ -49,8 +49,9 @@ apply_defaults() {
     LOG_THRESHOLD="${LOG_THRESHOLD:-MED}"
     LAYER1_TIMEOUT="${LAYER1_TIMEOUT:-5}"
     LAYER2_MAX_CHARS="${LAYER2_MAX_CHARS:-10000}"
-    LAYER2_TIMEOUT="${LAYER2_TIMEOUT:-15}"
-    LAYER2_MODEL="${LAYER2_MODEL:-}"
+    LAYER2_TIMEOUT="${LAYER2_TIMEOUT:-8}"
+    LAYER2_MODEL="${LAYER2_MODEL:-claude-haiku-4-5-20251001}"
+    LAYER2_TRIGGER_SEVERITY="${LAYER2_TRIGGER_SEVERITY:-MED}"
     LAYER4_TIMEOUT="${LAYER4_TIMEOUT:-5}"
     LOG_MAX_SIZE="${LOG_MAX_SIZE:-10M}"
     LOG_MAX_ENTRIES="${LOG_MAX_ENTRIES:-10000}"
@@ -104,6 +105,7 @@ load_config() {
                 LAYER2_MAX_CHARS)           LAYER2_MAX_CHARS="${LAYER2_MAX_CHARS:-$value}" ;;
                 LAYER2_TIMEOUT)             LAYER2_TIMEOUT="${LAYER2_TIMEOUT:-$value}" ;;
                 LAYER2_MODEL)               LAYER2_MODEL="${LAYER2_MODEL:-$value}" ;;
+                LAYER2_TRIGGER_SEVERITY)    LAYER2_TRIGGER_SEVERITY="${LAYER2_TRIGGER_SEVERITY:-$value}" ;;
                 LAYER4_TIMEOUT)             LAYER4_TIMEOUT="${LAYER4_TIMEOUT:-$value}" ;;
                 LOG_MAX_SIZE)               LOG_MAX_SIZE="${LOG_MAX_SIZE:-$value}" ;;
                 LOG_MAX_ENTRIES)            LOG_MAX_ENTRIES="${LOG_MAX_ENTRIES:-$value}" ;;
@@ -1251,9 +1253,18 @@ main() {
             SCAN_CATEGORIES="$CACHE_HIT_CATEGORIES"
             SCAN_INDICATORS="$CACHE_HIT_INDICATORS"
 
+            # Restore Layer 2 metadata from cache
+            if [[ -n "${CACHE_HIT_L2_EXECUTED:-}" ]]; then
+                LLM_EXECUTED="$CACHE_HIT_L2_EXECUTED"
+                LLM_SEVERITY="${CACHE_HIT_L2_SEVERITY:-NONE}"
+                LLM_REASONING="${CACHE_HIT_L2_REASONING:-}"
+                LLM_CONFIDENCE="${CACHE_HIT_L2_CONFIDENCE:-}"
+            fi
+
             if [[ "$SCAN_SEVERITY" != "NONE" ]]; then
                 CONTENT_SNIPPET=$(printf '%s' "$content" | head -c 300)
-                log_event "$SCAN_SEVERITY" "$TOOL_NAME" "$SCAN_CATEGORIES" "$SCAN_INDICATORS" "$CONTENT_SNIPPET"
+                log_event "$SCAN_SEVERITY" "$TOOL_NAME" "$SCAN_CATEGORIES" "$SCAN_INDICATORS" "$CONTENT_SNIPPET" "" \
+                    "$LLM_EXECUTED" "$LLM_SEVERITY" "$LLM_REASONING" "$LLM_CONFIDENCE"
             fi
 
             build_output_and_exit "$SCAN_SEVERITY" "$SCAN_CATEGORIES" "$SCAN_INDICATORS"
@@ -1332,6 +1343,10 @@ main() {
 
     # Layer 2: LLM analysis (skip if Layer 1 already found HIGH)
     if [[ "$ENABLE_LAYER2" == "true" ]] && [[ "$SCAN_SEVERITY" != "HIGH" ]]; then
+        local trigger_num scan_num_l2
+        trigger_num=$(severity_num "$LAYER2_TRIGGER_SEVERITY")
+        scan_num_l2=$(severity_num "$SCAN_SEVERITY")
+        if (( scan_num_l2 >= trigger_num )); then
         if llm_analyze_content "$content"; then
             LLM_EXECUTED=true
             # Escalate if Layer 2 found higher severity than Layer 1
@@ -1352,11 +1367,13 @@ main() {
                 fi
             fi
         fi
+        fi  # trigger severity gate
     fi
 
-    # Update scan cache with result
+    # Update scan cache with result (include L2 metadata)
     if [[ -n "$content_hash" ]] && type update_scan_cache &>/dev/null; then
-        update_scan_cache "$content_hash" "$SCAN_SEVERITY" "$SCAN_CATEGORIES" "$SCAN_INDICATORS"
+        update_scan_cache "$content_hash" "$SCAN_SEVERITY" "$SCAN_CATEGORIES" "$SCAN_INDICATORS" \
+            "$LLM_EXECUTED" "$LLM_SEVERITY" "$LLM_REASONING" "$LLM_CONFIDENCE"
     fi
 
     # Log + snippet if threat detected

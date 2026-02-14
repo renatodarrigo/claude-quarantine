@@ -1,5 +1,26 @@
 # Changelog
 
+## 2.0.3
+
+### Layer 2 Performance
+- Default model changed to Haiku (`claude-haiku-4-5-20251001`) — reduces LLM latency from 2-5s to 300-800ms
+- New `LAYER2_TRIGGER_SEVERITY=MED` config — skips LLM analysis on NONE/LOW severity, eliminating ~90% of unnecessary calls
+- Timeout reduced from 15s to 8s
+- Layer 2 results (severity, reasoning, confidence) now cached alongside Layer 1 scan results
+
+### Bug Fixes
+- Fixed confirmed threat redaction in MCP sanitizer — scanner was passing a descriptor string (`"confirmed threat {id}"`) instead of the actual matched indicator to the sanitizer, causing no lines to be redacted
+- Added "other" to `instruction_override` patterns for broader coverage
+
+### Tests
+- All test suites now run against dev files (`$SCRIPT_DIR/../hooks/`) instead of installed copies (`~/.claude/hooks/`)
+- 4 new Layer 2 tests: trigger severity gate, model default verification, cache metadata
+- 131 tests across 17 suites
+
+## 2.0.2
+
+- Fix installer to update PostToolUse matcher on existing installs
+
 ## 2.0.1
 
 - `/guard-config` wizard: layer toggles now use multiSelect checkboxes instead of one-at-a-time editing

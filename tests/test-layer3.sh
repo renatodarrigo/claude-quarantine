@@ -4,7 +4,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-MCP_DIR="$HOME/.claude/mcp/claude-guard"
+MCP_DIR="$SCRIPT_DIR/../mcp"
 PAYLOADS_DIR="$SCRIPT_DIR/fixtures/payloads"
 BENIGN_DIR="$SCRIPT_DIR/fixtures/benign"
 

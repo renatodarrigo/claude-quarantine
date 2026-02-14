@@ -30,7 +30,7 @@ FILE_PATTERNS_FILE=$REPO_DIR/hooks/file-patterns.conf
 EOF
 
 export GUARD_CONFIG="$TEST_CONF"
-export GUARD_PATTERNS="${GUARD_PATTERNS:-$HOME/.claude/hooks/injection-patterns.conf}"
+export GUARD_PATTERNS="${GUARD_PATTERNS:-$SCRIPT_DIR/../hooks/injection-patterns.conf}"
 export ENABLE_RATE_LIMIT=false
 export GUARD_CONFIRMED=/dev/null
 export LOG_FILE="$TEST_TMPDIR/injection-guard.log"

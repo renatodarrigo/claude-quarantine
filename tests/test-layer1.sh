@@ -3,7 +3,7 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOOK="$HOME/.claude/hooks/injection-guard.sh"
+HOOK="$SCRIPT_DIR/../hooks/injection-guard.sh"
 PAYLOADS_DIR="$SCRIPT_DIR/fixtures/payloads"
 BENIGN_DIR="$SCRIPT_DIR/fixtures/benign"
 
@@ -19,7 +19,7 @@ LOG_THRESHOLD=LOW
 EOF
 
 export GUARD_CONFIG="$TEST_CONF"
-export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export GUARD_PATTERNS="$SCRIPT_DIR/../hooks/injection-patterns.conf"
 export ENABLE_RATE_LIMIT=false
 export GUARD_CONFIRMED=/dev/null
 export LOG_FILE=/tmp/injection-guard-test.log

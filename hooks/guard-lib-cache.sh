@@ -10,7 +10,8 @@ compute_content_hash() {
 }
 
 # Check scan cache for a content hash
-# Returns 0 if cache hit (sets CACHE_HIT_SEVERITY, CACHE_HIT_CATEGORIES, CACHE_HIT_INDICATORS)
+# Returns 0 if cache hit (sets CACHE_HIT_SEVERITY, CACHE_HIT_CATEGORIES, CACHE_HIT_INDICATORS,
+#   and optionally CACHE_HIT_L2_EXECUTED, CACHE_HIT_L2_SEVERITY, CACHE_HIT_L2_REASONING, CACHE_HIT_L2_CONFIDENCE)
 # Returns 1 if cache miss
 check_scan_cache() {
     local content_hash="$1"
@@ -21,6 +22,10 @@ check_scan_cache() {
     CACHE_HIT_SEVERITY=""
     CACHE_HIT_CATEGORIES=""
     CACHE_HIT_INDICATORS=""
+    CACHE_HIT_L2_EXECUTED=""
+    CACHE_HIT_L2_SEVERITY=""
+    CACHE_HIT_L2_REASONING=""
+    CACHE_HIT_L2_CONFIDENCE=""
 
     [[ "${ENABLE_SCAN_CACHE:-true}" != "true" ]] && return 1
     [[ -z "$cache_file" ]] && return 1
@@ -50,6 +55,10 @@ if now - entry.get('ts', 0) > ttl:
 print(entry.get('severity', 'NONE'))
 print(entry.get('categories', ''))
 print(entry.get('indicators', ''))
+print(entry.get('l2_executed', 'false'))
+print(entry.get('l2_severity', ''))
+print(entry.get('l2_reasoning', ''))
+print(entry.get('l2_confidence', ''))
 sys.exit(0)
 " "$cache_file" "$content_hash" "$cache_ttl" 2>/dev/null)
 
@@ -57,20 +66,29 @@ sys.exit(0)
         CACHE_HIT_SEVERITY=$(sed -n '1p' <<< "$result")
         CACHE_HIT_CATEGORIES=$(sed -n '2p' <<< "$result")
         CACHE_HIT_INDICATORS=$(sed -n '3p' <<< "$result")
+        CACHE_HIT_L2_EXECUTED=$(sed -n '4p' <<< "$result")
+        CACHE_HIT_L2_SEVERITY=$(sed -n '5p' <<< "$result")
+        CACHE_HIT_L2_REASONING=$(sed -n '6p' <<< "$result")
+        CACHE_HIT_L2_CONFIDENCE=$(sed -n '7p' <<< "$result")
         return 0
     fi
     return 1
 }
 
 # Update scan cache with a new result
+# Args: hash severity categories indicators [l2_executed l2_severity l2_reasoning l2_confidence]
 update_scan_cache() {
     local content_hash="$1" severity="$2" categories="$3" indicators="$4"
+    local l2_executed="${5:-false}" l2_severity="${6:-}" l2_reasoning="${7:-}" l2_confidence="${8:-}"
     local cache_file="${SCAN_CACHE_FILE:-}"
     cache_file="${cache_file/#\~/$HOME}"
     local cache_ttl="${SCAN_CACHE_TTL:-300}"
 
     [[ "${ENABLE_SCAN_CACHE:-true}" != "true" ]] && return 0
     [[ -z "$cache_file" ]] && return 0
+
+    # Truncate reasoning to 200 chars to prevent unbounded cache growth
+    l2_reasoning="${l2_reasoning:0:200}"
 
     local cache_dir
     cache_dir="$(dirname "$cache_file")"
@@ -90,6 +108,10 @@ severity = sys.argv[3]
 categories = sys.argv[4]
 indicators = sys.argv[5]
 ttl = int(sys.argv[6])
+l2_executed = sys.argv[7]
+l2_severity = sys.argv[8]
+l2_reasoning = sys.argv[9]
+l2_confidence = sys.argv[10]
 now = time.time()
 
 try:
@@ -102,19 +124,29 @@ except (FileNotFoundError, json.JSONDecodeError):
 cache = {k: v for k, v in cache.items() if now - v.get('ts', 0) <= ttl}
 
 # Add new entry
-cache[h] = {
+entry = {
     'ts': now,
     'severity': severity,
     'categories': categories,
     'indicators': indicators
 }
 
+# Include L2 metadata if LLM was executed
+if l2_executed == 'true':
+    entry['l2_executed'] = 'true'
+    entry['l2_severity'] = l2_severity
+    entry['l2_reasoning'] = l2_reasoning
+    entry['l2_confidence'] = l2_confidence
+
+cache[h] = entry
+
 # Write atomically
 with tempfile.NamedTemporaryFile(mode='w', delete=False, dir=os.path.dirname(cache_file) or '.') as tmp:
     json.dump(cache, tmp)
     tmp_name = tmp.name
 os.rename(tmp_name, cache_file)
-" "$cache_file" "$content_hash" "$severity" "$categories" "$indicators" "$cache_ttl" 2>/dev/null
+" "$cache_file" "$content_hash" "$severity" "$categories" "$indicators" "$cache_ttl" \
+  "$l2_executed" "$l2_severity" "$l2_reasoning" "$l2_confidence" 2>/dev/null
 
     ) 200>"${cache_file}.lock"
 }

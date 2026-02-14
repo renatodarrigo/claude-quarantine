@@ -3,11 +3,11 @@
 set -uo pipefail
 
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-HOOK="$HOME/.claude/hooks/injection-guard.sh"
+HOOK="$SCRIPT_DIR/../hooks/injection-guard.sh"
 PAYLOADS_DIR="$SCRIPT_DIR/fixtures/payloads"
 BENIGN_DIR="$SCRIPT_DIR/fixtures/benign"
 
-export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export GUARD_PATTERNS="$SCRIPT_DIR/../hooks/injection-patterns.conf"
 export ENABLE_RATE_LIMIT=false
 export GUARD_CONFIRMED=/dev/null
 export ENABLE_SCAN_CACHE=false
@@ -87,13 +87,15 @@ else
 fi
 rm -f "$out" "$err"
 
-# Test 3: Layer 2 runs on NONE from Layer 1 (benign content)
+# Test 3: Layer 2 runs on NONE from Layer 1 (benign content) when trigger=NONE
 out="$(mktemp)" err="$(mktemp)"
-run_hook "$L2_CONF" "$BENIGN_PAYLOAD" "$out" "$err" || true
+L2_CONF_NONE="$L2_CONF
+LAYER2_TRIGGER_SEVERITY=NONE"
+run_hook "$L2_CONF_NONE" "$BENIGN_PAYLOAD" "$out" "$err" || true
 if grep -q "Layer 2" "$err"; then
-    pass "Layer 2 runs on NONE from Layer 1 (benign content)"
+    pass "Layer 2 runs on NONE from Layer 1 (trigger=NONE)"
 else
-    fail "Layer 2 runs on NONE from Layer 1" "No Layer 2 output: $(cat "$err")"
+    fail "Layer 2 runs on NONE from Layer 1 (trigger=NONE)" "No Layer 2 output: $(cat "$err")"
 fi
 rm -f "$out" "$err"
 
@@ -205,7 +207,8 @@ ENABLE_RATE_LIMIT=false
 HIGH_THREAT_ACTION=block
 LOG_FILE=/tmp/cq-test-l2-trunc.log
 LOG_THRESHOLD=LOW
-LAYER2_MAX_CHARS=10000"
+LAYER2_MAX_CHARS=10000
+LAYER2_TRIGGER_SEVERITY=NONE"
 out="$(mktemp)" err="$(mktemp)"
 run_hook "$L2_TRUNC_CONF" "$LARGE_PAYLOAD" "$out" "$err" || true
 if grep -q "truncated" "$err"; then
@@ -266,6 +269,113 @@ else
     fail "ENABLE_LAYER2=false → no Layer 2 execution" "Layer 2 output found: $(cat "$err")"
 fi
 rm -f "$out" "$err"
+
+# Test 10: Default LAYER2_TRIGGER_SEVERITY=MED skips Layer 2 on NONE severity
+echo ""
+echo "--- Trigger severity gate ---"
+out="$(mktemp)" err="$(mktemp)"
+run_hook "$L2_CONF" "$BENIGN_PAYLOAD" "$out" "$err" || true
+if ! grep -q "Layer 2 analysis:" "$err"; then
+    pass "Default trigger=MED skips Layer 2 on NONE severity"
+else
+    fail "Default trigger=MED skips Layer 2 on NONE severity" "Layer 2 ran: $(cat "$err")"
+fi
+rm -f "$out" "$err"
+
+# Test 11: LAYER2_TRIGGER_SEVERITY=MED runs Layer 2 on MED severity
+out="$(mktemp)" err="$(mktemp)"
+run_hook "$L2_CONF" "$MED_PAYLOAD" "$out" "$err" || true
+if grep -q "Layer 2" "$err"; then
+    pass "Trigger=MED runs Layer 2 on MED severity (attempted analysis)"
+else
+    if ! command -v claude &>/dev/null; then
+        if grep -q "claude CLI not found" "$err"; then
+            pass "Trigger=MED runs Layer 2 on MED severity (no claude CLI — graceful skip)"
+        else
+            fail "Trigger=MED runs Layer 2 on MED severity" "No Layer 2 stderr: $(cat "$err")"
+        fi
+    else
+        fail "Trigger=MED runs Layer 2 on MED severity" "No Layer 2 stderr: $(cat "$err")"
+    fi
+fi
+rm -f "$out" "$err"
+
+# Test 12: Default model is claude-haiku-4-5-20251001
+echo ""
+echo "--- Model default ---"
+MOCK_DIR="$(mktemp -d)"
+MOCK_ARGS_FILE="$(mktemp)"
+cat > "$MOCK_DIR/claude" <<MOCKEOF
+#!/usr/bin/env bash
+# Write args to file since stderr is suppressed by llm_analyze_content
+echo "\$@" > "$MOCK_ARGS_FILE"
+echo '{"severity": "NONE", "reasoning": "benign", "confidence": "high"}'
+MOCKEOF
+chmod +x "$MOCK_DIR/claude"
+out="$(mktemp)" err="$(mktemp)"
+conf_file="$(mktemp)"
+cat > "$conf_file" <<EOF
+ENABLE_LAYER1=true
+ENABLE_LAYER2=true
+ENABLE_RATE_LIMIT=false
+HIGH_THREAT_ACTION=block
+LOG_FILE=/tmp/cq-test-l2-model.log
+LOG_THRESHOLD=LOW
+LAYER2_TRIGGER_SEVERITY=NONE
+EOF
+PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" ENABLE_LAYER2=true ENABLE_LAYER1=true ENABLE_RATE_LIMIT=false LAYER2_TRIGGER_SEVERITY=NONE bash "$HOOK" < "$BENIGN_PAYLOAD" >"$out" 2>"$err"
+if grep -q -- "--model claude-haiku-4-5-20251001" "$MOCK_ARGS_FILE" 2>/dev/null; then
+    pass "Default model is claude-haiku-4-5-20251001"
+else
+    fail "Default model is claude-haiku-4-5-20251001" "Args: $(cat "$MOCK_ARGS_FILE" 2>/dev/null || echo 'no args file')"
+fi
+rm -rf "$MOCK_DIR" "$MOCK_ARGS_FILE" "$conf_file" "$out" "$err"
+
+# Test 13: Cache stores and restores L2 metadata
+echo ""
+echo "--- L2 cache ---"
+CACHE_TMP="/tmp/cq-test-l2-cache-$$.json"
+rm -f "$CACHE_TMP"
+MOCK_DIR="$(mktemp -d)"
+cat > "$MOCK_DIR/claude" <<'MOCKEOF'
+#!/usr/bin/env bash
+echo '{"severity": "MED", "reasoning": "cached L2 test", "confidence": "high"}'
+MOCKEOF
+chmod +x "$MOCK_DIR/claude"
+conf_file="$(mktemp)"
+cat > "$conf_file" <<EOF
+ENABLE_LAYER1=true
+ENABLE_LAYER2=true
+ENABLE_RATE_LIMIT=false
+ENABLE_SCAN_CACHE=true
+SCAN_CACHE_FILE=$CACHE_TMP
+SCAN_CACHE_TTL=300
+HIGH_THREAT_ACTION=warn
+LOG_FILE=/tmp/cq-test-l2-cache.log
+LOG_THRESHOLD=LOW
+EOF
+# First run: populates cache with L2 metadata
+out="$(mktemp)" err="$(mktemp)"
+PATH="$MOCK_DIR:$PATH" GUARD_CONFIG="$conf_file" ENABLE_LAYER2=true ENABLE_LAYER1=true ENABLE_RATE_LIMIT=false ENABLE_SCAN_CACHE=true SCAN_CACHE_FILE="$CACHE_TMP" SCAN_CACHE_TTL=300 HIGH_THREAT_ACTION=warn bash "$HOOK" < "$MED_PAYLOAD" >"$out" 2>"$err"
+# Check cache file for L2 fields
+if [[ -f "$CACHE_TMP" ]] && python3 -c "
+import json, sys
+with open(sys.argv[1]) as f:
+    cache = json.load(f)
+for h, entry in cache.items():
+    if entry.get('l2_executed') == 'true':
+        assert entry.get('l2_severity') in ('HIGH','MED','LOW','NONE'), 'bad l2_severity'
+        assert 'l2_reasoning' in entry, 'missing l2_reasoning'
+        assert entry.get('l2_confidence') in ('high','medium','low'), 'bad l2_confidence'
+        sys.exit(0)
+sys.exit(1)
+" "$CACHE_TMP" 2>/dev/null; then
+    pass "Cache stores L2 metadata"
+else
+    fail "Cache stores L2 metadata" "L2 fields missing in cache: $(cat "$CACHE_TMP" 2>/dev/null || echo 'no cache file') stderr: $(cat "$err" 2>/dev/null)"
+fi
+rm -f "$CACHE_TMP" "${CACHE_TMP}.lock" "$conf_file" "$out" "$err"
+rm -rf "$MOCK_DIR"
 
 echo ""
 echo "--- Layer 2 Summary: $PASSED/$TOTAL passed, $FAILED failed ---"

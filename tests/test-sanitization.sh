@@ -6,7 +6,7 @@ set -uo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 MCP_DIR="$SCRIPT_DIR/../mcp"
 
-export GUARD_PATTERNS="$HOME/.claude/hooks/injection-patterns.conf"
+export GUARD_PATTERNS="$SCRIPT_DIR/../hooks/injection-patterns.conf"
 export GUARD_CONFIRMED=/dev/null
 
 PASSED=0
